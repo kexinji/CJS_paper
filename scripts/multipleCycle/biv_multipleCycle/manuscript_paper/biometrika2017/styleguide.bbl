@@ -1,0 +1,45 @@
+\begin{thebibliography}{7}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+
+\bibitem[{Berrendero(2015)}]{Berrendero.etal:2015}
+\textsc{Berrendero, J.~R., C. A. . T. J.~L.} (2015).
+\newblock On the use of reproducing kernel hilbert spaces in functional
+  classification.
+\newblock \textit{arXiv} , 1507.04398v3.
+
+\bibitem[{Cleveland(1993)}]{Cleveland:1993}
+\textsc{Cleveland, W.~S.} (1993).
+\newblock \textit{{Vizualizing Data}}.
+\newblock Summit: Hobart Press.
+
+\bibitem[{Cleveland(1994)}]{Cleveland:1994}
+\textsc{Cleveland, W.~S.} (1994).
+\newblock \textit{{The Elements of Graphing Data}}.
+\newblock Summit: Hobart Press, revised ed.
+
+\bibitem[{Cox(1972)}]{Cox:1972}
+\textsc{Cox, D.~R.} (1972).
+\newblock {Regression models and life tables (with Discussion)}.
+\newblock \textit{J. R. Statist. Soc. {\rm B}} \textbf{34}, 187--220.
+
+\bibitem[{Heard et~al.(2006)Heard, Holmes \&
+  Stephens}]{Hear:Holm:Step:quan:2006}
+\textsc{Heard, N.~A.}, \textsc{Holmes, C.~C.} \& \textsc{Stephens, D.~A.}
+  (2006).
+\newblock A quantitative study of gene regulation involved in the immune
+  response of {A}nopheline mosquitoes: {A}n application of {B}ayesian
+  hierarchical clustering of curves.
+\newblock \textit{J. Am. Statist. Assoc.} \textbf{101}, 18--29.
+
+\bibitem[{{R Development Core Team}(2012)}]{R:2010}
+\textsc{{R Development Core Team}} (2012).
+\newblock \textit{R: A Language and Environment for Statistical Computing}.
+\newblock Vienna, Austria: R Foundation for Statistical Computing.
+\newblock {ISBN} 3-900051-07-0, http://www.R-project.org.
+
+\bibitem[{Tufte(1983)}]{Tufte:1983}
+\textsc{Tufte, E.~R.} (1983).
+\newblock \textit{{The Visual Display of Quantitative Information}}.
+\newblock Cheshire: Graphics Press.
+
+\end{thebibliography}

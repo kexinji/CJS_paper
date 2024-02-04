@@ -1,0 +1,16 @@
+[1] Brumback, B. A. & Rice, J. A. (1998). Semiparametric stochastic mixed models for longitudinal data. J. Am. Statist. Assoc. 93, 961–976.
+[2] Gold, E. B., Eskenazi, B., Hammond, S. K., Lasley, B. L.,Samuels, S. J., O’Neill Rasor, M., Hines, C. J., Overstreet, J. W. & Schenker, M. B. (1995a). Prospectively assessed menstrual cycle characteristics in female wafer-fabrication and nonfabrication semiconductor employees. Am. J. Industrial Medicine 28, 799–815.
+[3 ]Gold, E. B., Eskenazi, B., Lasley, B. L., Samuels, S. J.,O’Neill Rasor, M., Overstreet, J. W. & Schenker, M. B. (1995b). Epidemiologic methods for prospective assessment of menstrual cycle and reproductive characteristics in female semiconductor workers. Am. J. Industrial Medicine 28, 783–797.
+[4 ]Green, P. J. (1987). Penalized likelihood for general semi-parametric regression models. International Statistical Review 55, 245–260.
+[5] Green, P. J. & Silverman, B. W. (1994). Nonparametric Regression and Generalized Linear Models: A roughness penalty approach. London, UK: Chapman and Hall/CRC.
+[6] Koralov, L. B. & Sinai, Y. G. (2007). Theory of Probability and Random Processes. New York, NY: Springer, 2 ed.
+[7] Liu, Z., Cappola, A. R., Crofford, L. J. & Guo, W. (1999). Modeling bivariate longitudinal hormone profiles by hierarchical state space models. J. Am. Statist. Assoc. 109, 108–118.
+[8] Raffa, J. D., & Dubin, J. A. (2015). Multivariate longitudinal data analysis with mixed effects hidden Markov models. Biometrics 71, 821–831.
+[9] Sy, J. P., Taylor, J. M. G. & Cumberland, W. G. (1997). A stochastic model for the analysis of bivariate longitudinal AIDS data. Biometrics 53, 542–555.
+[10] Taylor, J. M. G., Cumberland, W. G. & Sy, J. P. (2000). A stochastic model for analysis of longitudinal AIDS data. J. Am. Statist. Assoc. 89, 727–736.
+[11] Verbyla, A. P., Cullis, B. R., Kenward, M. G. & Welham, S. J. (1999). The analysis of designed experiments and longitudinal data by using smoothing splines. J. R. Statist. Soc. C 48, 269–311.
+[12] Wang, Y., Guo, W. & Brown, M. B. (2000). Spline smoothing for bivariate data with applications to association between hormones. Statistica Sinica. 377–497.
+[13] Welham, S. J., Cullis, B. R., Kenward, M. G. & Thompson, R. (2006). The analysis of longi- tudinal data using mixed model L-splines. Biometrics. 62, 392–401.
+[14] Wood, S. (2006). Generalized Additive Models: An Introduction with R. Boca Raton, Florida: Chapman and Hall/CRC.
+[15] Zhang, D., Lin, X., Raz, J. & Sowers, M. (1998). Semiparametric stochastic mixed models for longitudinal data. J. Am. Statist. Assoc. 93, 710–719.
+[16] Zhang, D., Lin, X. & Sowers, M. (2000). Semiparametric regression for periodic longitudinal hormone data from multiple menstrual cycles. Biometrics 56, 31–39.

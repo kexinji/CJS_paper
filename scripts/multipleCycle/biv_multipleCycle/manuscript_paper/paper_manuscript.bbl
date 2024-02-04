@@ -1,0 +1,102 @@
+\begin{thebibliography}{10}
+
+\bibitem{brumback}
+Babette~A. Brumback and John~A. Rice.
+\newblock Smoothing spline models for the analysis of nested and crossed
+  samples of curves.
+\newblock {\em Journal of the American Statistical Association},
+  93(443):961--976, 1998.
+
+\bibitem{gold1995epidemiologic}
+Eilen~B Gold, Brenda Eskenazi, Bill~L Lasley, Steven~J Samuels, Marianne
+  O'Neill~Rasor, James~W Overstreet, and Marc~B Schenker.
+\newblock Epidemiologic methods for prospective assessment of menstrual cycle
+  and reproductive characteristics in female semiconductor workers.
+\newblock {\em American journal of industrial medicine}, 28(6):783--797, 1995.
+
+\bibitem{gold1995prospectively}
+Ellen~B Gold, Brenda Eskenazi, S~Katharine Hammond, Bill~L LaSley, Steven~J
+  Samuels, Marianne O'Neill~Rasor, Cynthia~J Hines, James~W Overstreet, and
+  Marc~B Schenker.
+\newblock Prospectively assessed menstrual cycle characteristics in female
+  wafer-fabrication and nonfabrication semiconductor employees.
+\newblock {\em American journal of industrial medicine}, 28(6):799--815, 1995.
+
+\bibitem{green87}
+P.~J. Green.
+\newblock Penalized likelihood for general semi-parametric regression models.
+\newblock {\em International Statistical Review}, 55:245--260, 1987.
+
+\bibitem{Green}
+P.~J. Green and Bernard~W. Silverman.
+\newblock {\em Nonparametric Regression and Generalized Linear Models: A
+  roughness penalty approach}.
+\newblock Chapman and Hall/CRC, London, UK, 1994.
+
+\bibitem{koralov}
+Leonid~B. Koralov and Yakov~G. Sinai.
+\newblock {\em Theory of Probability and Random Processes}.
+\newblock Springer, New York, NY, second edition, 2007.
+
+\bibitem{liu}
+Ziyue Liu, Anne~R. Cappola, Leslie~J. Crofford, and Wensheng Guo.
+\newblock Modeling bivariate longitudinal hormone profiles by hierarchical
+  state space models.
+\newblock {\em Journal of the American Statistical Association},
+  109(505):108--118, 2014.
+
+\bibitem{meyer}
+P.~M. Meyer, S.~L. Zeger, Sioban~D. Harlow, M.~Sowers, S.~Crawford, J.~L.
+  Luborsky, I.~Janssen, D.~S. McConnell, J.~F. Randolph, and G.~Weiss.
+\newblock Characterizing daily urinary hormone profiles for women at midlife
+  using functional data analysis.
+\newblock {\em American Journal of Epidemiology}, 165(8):936--945, 2007.
+
+\bibitem{sy}
+J.~P. Sy, J.~M.~G. Taylor, and W.~G. Cumberland.
+\newblock A stochastic model for the analysis of bivariate longitudinal aids
+  data.
+\newblock {\em Biometrics}, 53(2):542--555, 1997.
+
+\bibitem{taylor}
+J.~M.~G. Taylor, W.~G. Cumberland, and J.~P. Sy.
+\newblock A stochastic model for analysis of longitudinal aids data.
+\newblock {\em Journal of the American Statistical Association}, 89:727--736,
+  1994.
+
+\bibitem{verbyla}
+Arunas~P. Verbyla, Brian~R. Cullis, Michael~G. Kenward, and Sue~J. Welham.
+\newblock The analysis of designed experiments and longitudinal data by using
+  smoothing splines.
+\newblock {\em Journal of the Royal Statistical Society. Series C (Applied
+  Statistics)}, 48(3):269--311, 1999.
+
+\bibitem{wang2000spline}
+Yuedong Wang, Wensheng Guo, and Morton~B Brown.
+\newblock Spline smoothing for bivariate data with applications to association
+  between hormones.
+\newblock {\em Statistica Sinica}, pages 377--397, 2000.
+
+\bibitem{welham06}
+Sue~J. Welham, Brian~R. Cullis, Michael~G. Kenward, and Robin Thompson.
+\newblock The analysis of longitudinal data using mixed model l-splines.
+\newblock {\em Biometrics}, 62(2):392--401, 2006.
+
+\bibitem{wood}
+Simon Wood.
+\newblock {\em Generalized Additive Models: An Introduction with R}.
+\newblock Chapman and Hall/CRC, Boca Raton, Florida, 2006.
+
+\bibitem{zhang00}
+D.~Zhang, X.~Lin, and M.~Sowers.
+\newblock Semiparametric regression for periodic longitudinal hormone data from
+  multiple menstrual cycles.
+\newblock {\em Biometrics}, 56(1):31--39, 2000.
+
+\bibitem{zhang}
+Daowen Zhang, Xihong Lin, Jonathan Raz, and MaryFran Sowers.
+\newblock Semiparametric stochastic mixed models for longitudinal data.
+\newblock {\em Journal of the American Statistical Association},
+  93(442):710--719, 1998.
+
+\end{thebibliography}

@@ -1,0 +1,46 @@
+This is BibTeX, Version 0.99d (TeX Live 2015)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: paper_manuscript.aux
+The style file: plain.bst
+Database file #1: uw-ethesis.bib
+You've used 16 entries,
+            2118 wiz_defined-function locations,
+            598 strings with 7026 characters,
+and the built_in function-call counts, 6015 in all, are:
+= -- 564
+> -- 356
+< -- 1
++ -- 144
+- -- 124
+* -- 491
+:= -- 1036
+add.period$ -- 48
+call.type$ -- 16
+change.case$ -- 108
+chr.to.int$ -- 0
+cite$ -- 16
+duplicate$ -- 188
+empty$ -- 419
+format.name$ -- 124
+if$ -- 1218
+int.to.chr$ -- 0
+int.to.str$ -- 16
+missing$ -- 19
+newline$ -- 83
+num.names$ -- 32
+pop$ -- 94
+preamble$ -- 1
+purify$ -- 94
+quote$ -- 0
+skip$ -- 123
+stack$ -- 0
+substring$ -- 370
+swap$ -- 25
+text.length$ -- 1
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 58
+warning$ -- 0
+while$ -- 49
+width$ -- 18
+write$ -- 179

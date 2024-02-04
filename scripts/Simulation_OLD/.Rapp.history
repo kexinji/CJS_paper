@@ -1,0 +1,4807 @@
+mean(a)
+sim = 2
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par)#
+		temp = findPar(theta[, i])#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)#
+	for (i in 1:tp) {#
+		f.sim[i, ] = mean(fhat[i,])#
+	}#
+	for (i in 1:5) {#
+		theta.sim[i, ] = mean(theta[i,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+theta0
+simulation(n, sim, theta0)
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 5 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.01 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par)#
+		temp = findPar(theta[, i])#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+i = 1
+par = theta0
+# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par)#
+		temp = findPar(theta[, i])#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 2 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.6 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 10 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.1 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+theta0
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 2 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.1 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+ 		print("sim" = i)#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 2 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.6 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+ 		print(i) # the number of simulation#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 2 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.6 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+ 		print(i, quote = T) # the number of simulation#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+print("today")
+print("today", 1)
+print("today", wd)
+print("today", 2)
+paste("today", 1)
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 2 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.6 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+ 		paste("sim = ", i)#
+# 		print(i, quote = T) # the number of simulation#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 2 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.6 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		paste("sim = ", i)#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+# 		paste("sim = ", i)#
+# 		print(i, quote = T) # the number of simulation#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+paste("sim = ", 1)
+paste("sim =", 1)
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 2 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.6 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+#	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		print(i)#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+# 		paste("sim = ", i)#
+# 		print(i, quote = T) # the number of simulation#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 10 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.01 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+#	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		print(i)#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+# 		paste("sim = ", i)#
+# 		print(i, quote = T) # the number of simulation#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+a
+print("today", color = red)
+library(crayon)
+cat(blue("Hello", "world!\n"))
+cat(red("Hello", "world!\n"))
+library(crayon)#
+cat(blue("Hello", "world!\n"))
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 10 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.005 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+#	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		print(i)#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+# 		paste("sim = ", i)#
+# 		print(i, quote = T) # the number of simulation#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}
+simulation(n, sim, theta0)
+theta0
+60-36
+60-36 + 9
+result
+est
+beta
+beta1
+f
+theta0
+t(f)
+as.matrix(f)
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 10 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+#
+# from internet http://www.r-bloggers.com/block-diagonal-matrices-in-r/#
+# builds a block matrix whose diagonals are the square matrices provided.#
+# m1=matrix(runif(10*10),nrow=10,ncol=10)#
+# m2=matrix(runif(5*5),nrow=5,ncol=5)#
+# blockMatrix<-blockMatrixDiagonal(m1,m2,m2,m1)#
+# or#
+# blockMatrix<-blockMatrixDiagonal(list(m1,m2,m2,m1))#
+# C.Ladroue#
+blockMatrixDiagonal<-function(...){  #
+  matrixList<-list(...)#
+  if(is.list(matrixList[[1]])) matrixList<-matrixList[[1]]#
+  dimensions<-sapply(matrixList,FUN=function(x) dim(x)[1])#
+  finalDimension<-sum(dimensions)#
+  finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+  index<-1#
+  for(k in 1:length(dimensions)){#
+    finalMatrix[index:(index+dimensions[k]-1),index:(index+dimensions[k]-1)]<-matrixList[[k]]#
+    index<-index+dimensions[k]#
+    }#
+    finalMatrix#
+  }#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.01 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+#	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		print(i)#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+# 		paste("sim = ", i)#
+# 		print(i, quote = T) # the number of simulation#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}#
+est = simulation(n, sim, theta0)
+est = simulation(n, sim, theta0)
+quit()
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 10 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+blockMatrixDiagonal <- function(...) {#
+	matrixList <- list(...)#
+	if(is.list(matrixList[[1]])) matrixList <- matrixList[[1]]#
+	dimensions <- sapply(matrixList, FUN = function(x) dim(x) [1])#
+	finalDimension <- sum(dimensions)#
+	finalMatrix <- (0, nrow = finalDimension, ncol = finalDimension)#
+	index <- 1#
+	for (k in 1:length(dimensions)) {#
+		finalMatrix[index:(index+dimensions[k]-1), index:(index + dimensions[k] -1)] <- matrixList[[k]]#
+		index <- index + dimensions[k]#
+	}#
+	finalMatrix#
+}#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))
+blockMatrixDiagonal <- function(...) {#
+	matrixList <- list(...)#
+	if(is.list(matrixList[[1]])) matrixList <- matrixList[[1]]#
+	dimensions <- sapply(matrixList, FUN = function(x) dim(x)[1])#
+	finalDimension <- sum(dimensions)#
+	finalMatrix <- (0, nrow = finalDimension, ncol = finalDimension)#
+	index <- 1#
+	for (k in 1:length(dimensions)) {#
+		finalMatrix[index:(index+dimensions[k]-1), index:(index + dimensions[k] -1)] <- matrixList[[k]]#
+		index <- index + dimensions[k]#
+	}#
+	finalMatrix#
+}
+blockMatrixDiagonal <- function(...) {#
+	matrixList <- list(...)#
+	if(is.list(matrixList[[1]])) matrixList <- matrixList[[1]]#
+	dimensions <- sapply(matrixList, FUN = function(x) dim(x)[1])#
+	finalDimension <- sum(dimensions)#
+  	finalMatrix<-matrix(0,nrow=finalDimension,ncol=finalDimension)#
+	index <- 1#
+	for (k in 1:length(dimensions)) {#
+		finalMatrix[index:(index+dimensions[k]-1), index:(index + dimensions[k] -1)] <- matrixList[[k]]#
+		index <- index + dimensions[k]#
+	}#
+	finalMatrix#
+}
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30 # number of subjects#
+tp = 15 # one period first, 30 time points for two periods#
+sim = 10 # Number of simulation#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#------------------------------------------------------------------------------#
+# SET UP#
+#
+# A function that gives block matrix, found online.#
+blockMatrixDiagonal <- function(...) {#
+	matrixList <- list(...)#
+	if(is.list(matrixList[[1]])) matrixList <- matrixList[[1]]#
+	dimensions <- sapply(matrixList, FUN = function(x) dim(x)[1])#
+	finalDimension <- sum(dimensions)#
+  	finalMatrix<-matrix(0, nrow=finalDimension, ncol=finalDimension)#
+	index <- 1#
+	for (k in 1:length(dimensions)) {#
+		finalMatrix[index:(index+dimensions[k]-1), index:(index + dimensions[k] -1)] <- matrixList[[k]]#
+		index <- index + dimensions[k]#
+	}#
+	finalMatrix#
+}#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B#
+#===============================================================================#
+# PART II - TWO MAIN FUNCTIONS #
+#===============================================================================#
+#
+#------------------------------------------------------------------------------#
+# GIVE ESTIMATES FOR BETA, F, AND THETA#
+findPar = function(theta, Y) {#
+	# VARIANCE FOR OU PROCESS#
+	Gammai = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			Gammai[i,j] = (theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	Vi = Zi %*% theta[2] %*% t(Zi) + Gammai + theta[3] * diag(tp)#
+	Wi = solve(Vi)#
+	W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+	# INVERSE of MATRIX C#
+	# The 1st row of block matrix C#
+	C11 = t(X) %*% W %*% X#
+	C12 = t(X) %*% W %*% N#
+	CRow1 = cbind(C11, C12)#
+	# The 2nd row of block matrix C#
+ 	C21 = t(N) %*% W %*% X#
+	C22 = t(N) %*% W %*% N + (1/theta[1]) * K#
+	CRow2 = cbind(C21, C22)#
+	# Inverse of coefficient matrix#
+	C = rbind(CRow1, CRow2)#
+	invC = ginv(C)#
+	# ESTIMATES FOR beta AND f#
+	temp = rbind(t(X) %*% W %*% Y, t(N) %*% W %*% Y)#
+	estimates = invC%*% temp#
+	betaHat = estimates[1] #
+	fHat = matrix(estimates[2:16])#
+	# P*#
+	chi = cbind(X, N)	#
+	Pst = W - W %*% chi %*% invC %*% t(chi) %*% W#
+#
+	# PARTIAL DERIVATIVES#
+	# Partial derivative of V wrt the variance of b#
+	parV_b = do.call("blockMatrixDiagonal", replicate(n, Zi %*% t(Zi), simplify = F))#
+	# Partial derivative of V wrt to the variance of epsilon#
+	parV_eps = do.call("blockMatrixDiagonal", replicate(n, diag(tp), simplify = F))#
+	# Partial derivative of V wrt theta2 in the OU process#
+	parV_theta2i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta2i[i,j] = -(theta[5]^2 / (2*theta[4]^2)) * exp(-theta[4]*abs(i-j)) - abs(i-j)*(theta[5]^2 / (2*theta[4])) * exp(-theta[4]*abs(i-j)) #
+		}#
+	}#
+	parV_theta2 = do.call("blockMatrixDiagonal", replicate(n, parV_theta2i, simplify = F))#
+	# Partial derivative of V wrt theta3 in the OU process#
+	parV_theta3i = matrix(rep(0, tp*tp), tp, tp)#
+	for (i in 1:15) {#
+		for (j in 1:15) {#
+			parV_theta3i[i,j] = (theta[5] / theta[4]) * exp(-theta[4]*abs(i-j))#
+		}#
+	}#
+	parV_theta3 = do.call("blockMatrixDiagonal", replicate(n, parV_theta3i, simplify = F))#
+	parV = cbind(parV_b, parV_eps, parV_theta2, parV_theta3)#
+	# Values needed in score, py = W * (Y - x*betaHat - N * fHat); tpy #
+	py = W %*% (Y - X %*% betaHat - N %*% fHat)#
+	tpy = t(Y - X %*% betaHat - N %*% fHat) %*% 	W#
+	# SCORE; FISHER INFO#
+	score = matrix(0, 5, 1) #
+	fInfo = matrix(0, 5, 5)#
+#
+	library(psych) # to use function tr()#
+	Bdou = Bstar %*% t(Bstar) #
+#
+	score[1] = tpy %*% Bdou %*% py - tr(Pst %*% Bdou)#
+	for (i in 2:5) {#
+		score[i] = tpy %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% py - tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_tauTau#
+	fInfo[1, 1] = tr(Pst %*% Bdou %*% Pst %*% Bdou)	#
+	# I_tauTheta#
+	for (i in 2:5) {#
+		fInfo[1, i] = tr(Pst %*% Bdou %*% Pst %*% parV[, (450*(i-2)+1): (450*(i-1))])#
+	}#
+	# I_thetaTheta#
+	for (i in 2:5) {#
+		for (j in 2:5) {#
+			fInfo[i, j] = tr(Pst %*% parV[, (450*(i-2)+1): (450*(i-1))] %*% Pst %*% parV[, (450*(j-2)+1): (450*(j-1))])#
+		}#
+	}#
+#
+	score = score/2#
+	fInfo = fInfo/2#
+	Finv = ginv(fInfo)#
+#
+	thetaNew = theta + Finv %*% score	# Parameter estimate after one iteration#
+	newlist = list("thetaNew" = theta + Finv %*% score, "betaHat" = estimates[1], "fHat" = matrix(estimates[2:16]))#
+	return(newlist)#
+}#
+#
+#------------------------------------------------------------------------------#
+# FISHER-SCORING ALGORITHM#
+#
+iternum = 0#
+diff = matrix(rep(1, 5), 1, 5)#
+tol = 0.01 # take 52 iterations for tol = 0.01#
+fisher.scoring = function(theta, Y) {#
+	while (diff[1] > tol | diff[2] > tol | diff[3] > tol | diff[4] > tol | diff[5] > tol) {#
+		iternum = iternum + 1#
+	    theta0 = theta#
+		theta = findPar(theta0, Y)$thetaNew#
+		for (i in 1:5){#
+			while (theta[i]<0) {#
+				theta[i] = (theta[i] + theta0[i])/2#
+			}#
+		}#
+		for (i in 1:5) {#
+			diff[i] = abs(theta[i] - theta0[i])#
+		}#
+#	print(iternum)#
+	print (diff)#
+	print(theta)#
+	}#
+	return(theta)#
+}#
+#===============================================================================#
+# PART III - SIMULATION #
+#===============================================================================#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+beta = matrix(0, 1, sim)#
+fhat = matrix(0, 15, sim)#
+theta = matrix(0, 5, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = 0#
+f.sim = matrix(0, 15, 1)#
+theta.sim = matrix(0, 5, 1)#
+#
+simulation = function(n, sim, par) {#
+	# For each simulation, obtain the parameter estimates.#
+	for (i in 1:sim) {#
+		print(i)#
+		# independent random intercepts; sigma.b > sigma; random time effect corresponding to different subject;#
+		bi = rnorm(n, 0, par[2]) #
+		# measurement error - epsilon#
+		eps.vec = rnorm(n*tp, 0, par[3])#
+		epsilon = matrix(eps.vec, n, tp)#
+		# Gaussian process#
+		tempU = rsOU(n*tp, theta=c(0, par[4], par[5]))#
+		u = matrix(tempU, n, tp)#
+		# Longitudinal data Y#
+		tempResponse = matrix(rep(0, n*tp), n, tp)#
+		for(j in 1:n) {#
+			# each row is one subject#
+			tempResponse[j,] = beta1*age[j] + f + bi[j] + u[j,] + epsilon[j,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# Estimates of beta, f and theta from one simulation#
+		theta[, i] = fisher.scoring(par, Y)#
+		temp = findPar(theta[, i], Y)#
+ 		beta[,i] = temp$betaHat#
+ 		fhat[,i] = temp$fHat#
+# 		paste("sim = ", i)#
+# 		print(i, quote = T) # the number of simulation#
+	}#
+	# Average of simulation results. #
+	beta.sim = mean(beta)	#
+	for (k in 1:tp) {#
+		f.sim[k, ] = mean(fhat[k,])#
+	}	#
+	for (h in 1:5) {#
+		theta.sim[h, ] = mean(theta[h,])#
+	}#
+	return(list(beta.sim, f.sim, theta.sim))#
+}#
+est = simulation(n, sim, theta0)
+system.time(simulation())
+simulation(n, sim, theta0)
+stop()
+stop
+x <- 1:5#
+#
+for (val in x) {#
+    if (val == 3){#
+        next#
+    }#
+    print(val)#
+}
+?next
+a = matrix(0, 15, 1)
+a
+a = matrix(c(0, rep(1, 5)))
+a
+a = matrix(c(0, rep(3, 5)))
+a
+a = matrix(c(0, rep(2, 5), 0, 0, rep(5, 2)))
+a
+a[a!= 0]
+mean(a[a!= 0])
+20/7
+M <- as.matrix(data.frame(a=runif(10),b=rep(0,10),c=runif(10),d=rep(0,10)))
+M
+M[,which(!apply(M,2,FUN = function(x){all(x == 0)}))]
+?system.time
+M <- as.matrix(data.frame(a=runif(10),b=rep(0,10),c=runif(10),d=rep(0,10)))
+M
+M[,which(!apply(M==0,2,all))]
+source(univSim.R)
+source("univSim.R")
+?set.seed
+rnorm(2)
+theta0
+rnorm(1, 0, 2)
+set.seed(0.9)
+rnorm(5, 0, 2)
+set.seed(0.9)
+rnorm(5, 0, 2)
+set.seed(0.9)
+rnorm(5, 0, 2)
+a
+a = a[a!=0]
+a
+dim(a)
+length(a)
+matrix(0, 5)
+system.time(est <- simulation(n, sim, theta0))
+system.time(a<-replicate(2, 3))
+a<-replicate(2, 3)
+a
+system.time(a=replicate(2, 3))
+system.time(a<-replicate(2, 3))
+?system.time
+system.time(b <- rnorm(1000))
+b
+a <- c(1, 2, 3, 4, 5)
+a
+a[1]
+a[2]
+# Bivaraite simulations#
+#
+n = 30 # number of subjects#
+tp = 30 # 15 time points for one period; 30 time points for two periods#
+#
+# periodic function with period length equal to 30 days#
+# use the cyclic spline, alternatively; and see what I can do..#
+# Q1: use different periodic functions? #
+t = seq(1, 60, by = 2) # 60 for two periods#
+f1 = 5*sin((2*pi/30)*t)#
+f2 = 3*sin((2*pi/30)*t)#
+#plot(t, f_1, type = "l")#
+#
+# Simulate bivariate random intercepts. Initiate variance components. #
+# sigma.b > sigma; n = 30; #
+library(MASS)#
+D = matrix(c(1.5, 0.5, 0.5, 1.2), 2, 2) # variance for bi#
+b = mvrnorm(n, c(0, 0), D) #
+#
+# noise #
+var_eps = c(0.8, 0.6)#
+sigma = diag(var_eps) # variance for epsilon#
+eps = mvrnorm(n*tp, c(0, 0), sigma)#
+eps1 = matrix(eps[,1], n, tp)#
+eps2 = matrix(eps[,2], n, tp)#
+# OU process, assuming mean 0 and variance 1^2/2*2 = 1/4.#
+# now let the variance function depend on t; let xi_0, xi_ = 1; #
+library(sde) #
+# xi0 = 0.01#
+# xi1 = 0.02#
+# xi2 = 0.03#
+# sigma.ou = exp(xi0 + xi1*t + xi2*t^2)#
+#
+tempU_1 = rsOU(n*tp, theta=c(0,2,3)) # theta2 = 2, theta3 = 3#
+tempU_2 = rsOU(n*tp, theta=c(0,2,5)) # theta2 = 2, theta3 = 3#
+u1 = matrix(tempU_1, n, tp)#
+u2 = matrix(tempU_2, n, tp)#
+# simulate covariate ages of the women#
+# the average age of menopause is 51 years old.#
+set.seed(51)#
+age = sample(35:60, size = n, replace = T)#
+#age = rep(age, each = tp)#
+#
+id = rep(1:n, each = tp)#
+day = rep(t, n)#
+#
+# regression coefficient.#
+beta1 = -0.5 # initiation of beta1#
+tempResponse = matrix(rep(0, 2*n*tp), 2*n, tp)#
+for(i in 1:n) {#
+	# every two rows are one subject#
+	tempResponse[(2*i-1),] = beta1*age[i] + f1 + b[i, 1] + u1[i,] + eps1[i,]#
+	tempResponse[2*i,] = beta1*age[i] + f2 + b[i, 2] + u2[i,] + eps2[i,]#
+}#
+response = as.vector(t(tempResponse))#
+range(response)#
+response = round(response)
+dim(response)
+length(response)
+response = matrix(response)
+dim(response)
+Zi = matrix(0, 2*tp, 2) # initiate matrix Zi#
+Zi[ ,1] = rep(c(1, 0), tp) # the first column of Zi is 1, 0, 1, 0...#
+Zi[ ,2] = rep(c(0, 1), tp) # the second column of Zi is 0, 1, 0, 1...#
+#
+sigma_i = diag(rep(var_eps, tp))#
+#
+gamma_i = matrix(0, 2*tp, 2*tp)#
+for (i in 1:tp) {#
+	gamma_i[2*i - 1, ] = rep(c(9/4, 0), tp) #
+	gamma_i[2*i, ] = rep(c(25/4, 0), tp)#
+	}#
+#
+Vi = Zi %*% D %*% t(Zi) + sigma_i + gamma_i#
+Wi = solve(Vi)
+dim(Wi)
+# A function that return a block matrix, code found online.#
+blockMatrixDiagonal <- function(...) {#
+	matrixList <- list(...)#
+	if(is.list(matrixList[[1]])) matrixList <- matrixList[[1]]#
+	dimensions <- sapply(matrixList, FUN = function(x) dim(x)[1])#
+	finalDimension <- sum(dimensions)#
+  	finalMatrix<-matrix(0, nrow=finalDimension, ncol=finalDimension)#
+	index <- 1#
+	for (k in 1:length(dimensions)) {#
+		finalMatrix[index:(index+dimensions[k]-1), index:(index + dimensions[k] -1)] <- matrixList[[k]]#
+		index <- index + dimensions[k]#
+	}#
+	finalMatrix#
+}#
+# the variance #
+Zi = matrix(0, 2*tp, 2) # initiate matrix Zi#
+Zi[ ,1] = rep(c(1, 0), tp) # the first column of Zi is 1, 0, 1, 0...#
+Zi[ ,2] = rep(c(0, 1), tp) # the second column of Zi is 0, 1, 0, 1...#
+#
+sigma_i = diag(rep(var_eps, tp))#
+#
+gamma_i = matrix(0, 2*tp, 2*tp)#
+for (i in 1:tp) {#
+	gamma_i[2*i - 1, ] = rep(c(9/4, 0), tp) #
+	gamma_i[2*i, ] = rep(c(25/4, 0), tp)#
+	}#
+#
+Vi = Zi %*% D %*% t(Zi) + sigma_i + gamma_i#
+Wi = solve(Vi)#
+W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))
+dim(W)
+Zi
+as.matrix(rep(1, tp))
+age = sample(35:60, size = n, replace = T)
+dim(age)
+age
+age = rep(age, each = tp)
+age
+length(age)
+dim(age)
+as.matrix(age)
+dim(age)
+dim(as.matrix(age))
+a
+a = diag(2, 2, 2)
+a
+age = sample(35:60, size = n, replace = T)
+age
+rep(a, 2, 2)
+rep(a, 2)
+as.matrix(rep(a, 2))
+as.matrix(rep(a, 2), 4, 2)
+Xi = matrix(0, 2*tp, 2)
+dim(Xi)
+tp
+age
+rep(c(age[i], 0), tp)
+a = rep(c(age[i], 0), tp)
+dim(a)
+length(a)
+X = matrix(0, 2*tp*n, 2)#
+for (i in 1:n) {#
+	X[((2*tp)*(i-1)+1):(2*tp*i), 1] = rep(c(age[i], 0), tp)#
+	X[((2*tp)*(i-1)+1):(2*tp*i), 2] = rep(c(0, age[i]), tp)#
+}
+X
+age
+DF<-data.frame(x=1:3,y=2:4)
+DF
+?sapply
+N1iTemp = diag(1, tp, tp)
+N1iTemp
+zero1 = matrix(0, tp, tp)
+a
+a = diag(1, 3, 3)
+a
+z1
+z1 = matrix(0, 3, 3)
+z1
+rbind(a[1, ], z1[1, ])
+rbind(a[1, ], z1[1, ], a[2, ], z1[2, ])
+new = matrix(0, 6, 3)
+new
+for(i in 1:3) {}
+for(i in 1:3) {new = rbind(a[i, ], z1[i, ])}
+new
+for(i in 1:3) {new[2*i-1:(2*i),] = rbind(a[i, ], z1[i, ])}
+new = matrix(0, 6, 3)
+for(i in 1:3) {new[(2*i-1):(2*i),] = rbind(a[i, ], z1[i, ])}
+new
+N1iTemp = diag(1, tp, tp) #
+z1 = matrix(0, tp, tp)#
+N1i = matrix(0, 2*tp, tp) #
+for(i in 1:3) {#
+	N1i[(2*i-1):(2*i),] = rbind(N1iTemp[i, ], z1[i, ])#
+}
+N1i
+N1iTemp = diag(1, tp, tp) #
+z1 = matrix(0, tp, tp)#
+N1i = matrix(0, 2*tp, tp) #
+for(i in 1:tp) {#
+	N1i[(2*i-1):(2*i),] = rbind(N1iTemp[i, ], z1[i, ])#
+}
+N1i
+N1  = do.call("rbind", replicate(n, N1i, simplify = F))
+NTemp = diag(1, tp, tp) #
+z = matrix(0, tp, tp) # matrix of zeros #
+N1i = matrix(0, 2*tp, tp) #
+for(i in 1:tp) {#
+	N1i[(2*i-1):(2*i),] = rbind(NTemp[i, ], z[i, ])#
+}#
+N2i = matrix(0, 2*tp, tp) #
+for(i in 1:tp) {#
+	N2i[(2*i-1):(2*i),] = rbind(z[i, ], NTemp[i, ])#
+}#
+N1  = do.call("rbind", replicate(n, N1i, simplify = F))#
+N2  = do.call("rbind", replicate(n, N2i, simplify = F))
+dim(N1)
+dim(N2)
+dim(X)
+lambda1 = 0.15#
+lambda2 = 2#
+#
+# The 1st row of matrix C#
+C11 = t(X) %*% W %*% X#
+C12 = t(X) %*% W %*% N1#
+C13 = t(X) %*% W %*% N2#
+CRow1 = cbind(C11, C12, C13)
+# The 2nd row of matrix C#
+C21 = t(N1) %*% W %*% X#
+C22 = t(N1) %*% W %*% N1 + lambda1 * K#
+C23 = t(N1) %*% W %*% N2#
+CRow2 = cbind(C21, C22, C23)
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)
+# The 2nd row of matrix C#
+C21 = t(N1) %*% W %*% X#
+C22 = t(N1) %*% W %*% N1 + lambda1 * K#
+C23 = t(N1) %*% W %*% N2#
+CRow2 = cbind(C21, C22, C23)
+# The 2nd row of matrix C#
+C31 = t(N2) %*% W %*% X#
+C32 = t(N2) %*% W %*% N1#
+C33 = t(N2) %*% W %*% N2 + lambda2 * K#
+CRow3 = cbind(C31, C32, C33)
+# Inverse of coefficient matrix#
+C = rbind(CRow1, CRow2, CRow3)
+invC = ginv(C)
+# Bivaraite simulations#
+#
+n = 30 # number of subjects#
+tp = 30 # 15 time points for one period; 30 time points for two periods#
+#
+# periodic function with period length equal to 30 days#
+# use the cyclic spline, alternatively; and see what I can do..#
+# Q1: use different periodic functions? #
+t = seq(1, 60, by = 2) # 60 for two periods#
+f1 = 5*sin((2*pi/30)*t)#
+f2 = 3*sin((2*pi/30)*t)#
+#plot(t, f_1, type = "l")#
+#
+# Simulate bivariate random intercepts. Initiate variance components. #
+# sigma.b > sigma; n = 30; #
+library(MASS)#
+D = matrix(c(1.5, 0.5, 0.5, 1.2), 2, 2) # variance for bi#
+b = mvrnorm(n, c(0, 0), D) #
+#
+# noise #
+var_eps = c(0.8, 0.6)#
+sigma = diag(var_eps) # variance for epsilon#
+eps = mvrnorm(n*tp, c(0, 0), sigma)#
+eps1 = matrix(eps[,1], n, tp)#
+eps2 = matrix(eps[,2], n, tp)#
+# OU process, assuming mean 0 and variance 1^2/2*2 = 1/4.#
+# now let the variance function depend on t; let xi_0, xi_ = 1; #
+library(sde) #
+# xi0 = 0.01#
+# xi1 = 0.02#
+# xi2 = 0.03#
+# sigma.ou = exp(xi0 + xi1*t + xi2*t^2)#
+#
+tempU_1 = rsOU(n*tp, theta=c(0,2,3)) # theta2 = 2, theta3 = 3#
+tempU_2 = rsOU(n*tp, theta=c(0,2,5)) # theta2 = 2, theta3 = 3#
+u1 = matrix(tempU_1, n, tp)#
+u2 = matrix(tempU_2, n, tp)#
+# simulate covariate ages of the women#
+# the average age of menopause is 51 years old.#
+set.seed(51)#
+age = sample(35:60, size = n, replace = T)#
+#
+X = matrix(0, 2*tp*n, 2)#
+for (i in 1:n) {#
+	X[((2*tp)*(i-1)+1):(2*tp*i), 1] = rep(c(age[i], 0), tp) # the first column of 1st subject of Xi is age[1], 0, age[1], 0...#
+	X[((2*tp)*(i-1)+1):(2*tp*i), 2] = rep(c(0, age[i]), tp) # the second column of 1st subject of Xi is 0, age[1], 0, age[1]...#
+}#
+id = rep(1:n, each = tp)#
+day = rep(t, n)#
+#
+# regression coefficient.#
+beta1 = -0.5 # initiation of beta1#
+tempResponse = matrix(rep(0, 2*n*tp), 2*n, tp)#
+for(i in 1:n) {#
+	# every two rows are one subject#
+	tempResponse[(2*i-1),] = beta1*age[i] + f1 + b[i, 1] + u1[i,] + eps1[i,]#
+	tempResponse[2*i,] = beta1*age[i] + f2 + b[i, 2] + u2[i,] + eps2[i,]#
+}#
+Y = as.vector(t(tempResponse))#
+Y = as.matrix(round(Y))
+temp = rbind(t(X) %*% W %*% Y, t(N1) %*% W %*% Y, t(N2) %*% W %*% Y)
+estimates = invC%*% temp
+estimates
+est = invC%*% temp#
+betaHat = est[1:2] #
+f1Hat = matrix(estimates[3:32])#
+f2Hat = matrix(estimates[33:62])
+betaHat
+f1Hat
+f1
+f1 - f1Hat
+f2
+f2 - f2Hat
+# Simulation - Zhang et al 1998#
+#
+#===============================================================================#
+# PART I - INITIALIZATION, AND SET UP #
+#===============================================================================#
+#
+library(sde) # For rsOU #
+#
+#------------------------------------------------------------------------------#
+# INITIALIZATION#
+#
+n = 30#
+tp = 15 # one period first, 30 time points for two periods#
+# Variance initializations#
+sigma.b = 2 # variance for bi, initially 1.5#
+sigma =  1 # variance for epsilon, initially 2#
+theta2 = 2#
+theta3 = 0.5#
+lambda = 0.1389352  # based on Zhang et al(1998), lambda = 1/tau#
+#
+tau = 1/lambda#
+#
+theta0 = matrix(c(tau, sigma.b, sigma, theta2, theta3), 5, 1)#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#
+# Nonparametric function f, period = 30 days #
+t = seq(1, 30, by = 2) # 60 for two periods, 30 for one period.#
+f = 5*sin((2*pi/30)*t)#
+#
+# Covariates#
+age = sample(35:60, size = n, replace = T)#
+X = as.matrix(rep(age, each = tp))#
+#
+Zi = as.matrix(rep(1, tp)) #
+#
+# A function that return a block matrix, code found online.#
+blockMatrixDiagonal <- function(...) {#
+	matrixList <- list(...)#
+	if(is.list(matrixList[[1]])) matrixList <- matrixList[[1]]#
+	dimensions <- sapply(matrixList, FUN = function(x) dim(x)[1])#
+	finalDimension <- sum(dimensions)#
+  	finalMatrix<-matrix(0, nrow=finalDimension, ncol=finalDimension)#
+	index <- 1#
+	for (k in 1:length(dimensions)) {#
+		finalMatrix[index:(index+dimensions[k]-1), index:(index + dimensions[k] -1)] <- matrixList[[k]]#
+		index <- index + dimensions[k]#
+	}#
+	finalMatrix#
+}#
+#------------------------------------------------------------------------------#
+# Matrices that does not depend on theta#
+#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+#
+# Matrix N, incidence matrix#
+Ni = diag(1, tp, tp) #
+N = do.call("rbind", replicate(n, Ni, simplify = F))#
+# B*#
+#
+# Matrix B#
+LTranspose = chol(K, pivot = T, LDL = T) # upper triangular matrix#
+L = t(LTranspose) # lower triangular matrix#
+B = L %*% ginv((t(L) %*% L))#
+#
+# Bstar#
+Bstar = N %*% B
+Bstar
+a
+a = Bstar %*% t(Bstar)
+a
+dim(a)
+want <- read.table("ageBMI_want.txt", header = T)#
+data <- read.table("ageBMI.txt", header = T)#
+m <- 307 # number of women in the dataset (dataset w/ complete age BMI)#
+#
+# find max in the new dataset after deleting rows with missing data #
+max <- rep(0, m)#
+for (i in 1:307) {#
+	max[i] = nrow(data[which(data$womanid == i),])#
+}#
+#
+n <- sum(max) # total observations for all subjects#
+#
+# BIVARIATE RESPONSE#
+Y <- matrix(0, 2*n)#
+for (i in 1:n) {#
+	Y[2*i - 1] = data$adjpdg2[i]#
+	Y[2*i] = data$adje1c2[i]#
+}#
+#
+# COVARIATE X, indexes different from simulation, since ni are different for i#
+age <- want$age#
+BMI <- want$BMI#
+X <- matrix(0, 2*n, 4) # initialization#
+n1 <- max[1]#
+X[1:(2*n1), 1] = rep(c(age[1], 0), n1) #
+X[1:(2*n1), 2] = rep(c(BMI[1], 0), n1) #
+X[1:(2*n1), 3] = rep(c(0, age[1]), n1) #
+X[1:(2*n1), 4] = rep(c(0, BMI[1]), n1) #
+for (i in 2:m) {#
+	ni = max[i]#
+	# the 1st column of Xi is age[1], 0, age[2], 0...#
+	X[((2*sum(max[1:(i-1)])) + 1):(2*sum(max[1:i])), 1] = rep(c(age[i], 0), ni) #
+	# the 2nd column of Xi is BMI[1], 0, BMI[2], 0...#
+	X[((2*sum(max[1:(i-1)])) + 1):(2*sum(max[1:i])), 2] = rep(c(BMI[i], 0), ni) #
+	# the 3rd column of Xi is 0, age[1], 0, age[2]...#
+	X[((2*sum(max[1:(i-1)])) + 1):(2*sum(max[1:i])), 3] = rep(c(0, age[i]), ni)#
+	# the 4th column of Xi is 0, BMI[1], 0, BMI[2]...#
+	X[((2*sum(max[1:(i-1)])) + 1):(2*sum(max[1:i])), 4] = rep(c(0, BMI[i]), ni) #
+}#
+# INVERSE VARIANCE MATRIX W#
+W <- diag(0, 2*n) # initialization of W#
+var_eps <- c(0.8, 0.6) # diagonal variance for epsilon#
+# Z1#
+Z1 <- matrix(0, 2*n1, 2) # initialize matrix Zi#
+Z1[ ,1] <- rep(c(1, 0), n1) # the first column of Zi is 1, 0, 1, 0...#
+Z1[ ,2] <- rep(c(0, 1), n1) # the second column of Zi is 0, 1, 0, 1...#
+D = matrix(c(1.5, 0.5, 0.5, 1.2), 2, 2) # variance for bi#
+# Gamma_1#
+gamma_1 <- matrix(0, 2*n1, 2*n1)#
+for (j in 1:n1) {#
+	gamma_1[2*j - 1, ] <- rep(c(9/4, 0), n1) #
+	gamma_1[2*j, ] <- rep(c(25/4, 0), n1)#
+}#
+# W1#
+W[(1:(2*n1)), (1:(2*n1))] <- solve(Z1 %*% D %*% t(Z1) + diag(rep(var_eps, n1)) + gamma_1)#
+#
+# W for subject 2:m, diagonal block matrix#
+for (i in 2:m) {#
+	ni <- max[i]#
+	# Zi#
+	Zi <- matrix(0, 2*ni, 2) # initialize matrix Zi#
+	Zi[ ,1] <- rep(c(1, 0), ni) # the first column of Zi is 1, 0, 1, 0...#
+	Zi[ ,2] <- rep(c(0, 1), ni) # the second column of Zi is 0, 1, 0, 1...#
+	# Gamma_i#
+	gamma_i <- matrix(0, 2*ni, 2*ni)#
+	for (j in 1:ni) {#
+		gamma_i[2*j - 1, ] <- rep(c(9/4, 0), ni) #
+		gamma_i[2*j, ] <- rep(c(25/4, 0), ni)#
+	}#
+	# index for W, nrow = ncol#
+	nrow <- ((2*sum(max[1:(i-1)])) + 1):(2*sum(max[1:i])) #
+	W[nrow, nrow] <- solve(Zi %*% D %*% t(Zi) + diag(rep(var_eps, ni)) + gamma_i)#
+}#
+# Find ordered distinct values of mod(t_ij, 28)#
+day <- data$standday#
+uniqueDay <- sort(unique(day))#
+r <- length(uniqueDay)#
+#
+# Incidence matrices N1 & N2#
+N1 <- matrix(0, 2*n, r)#
+N2 <- matrix(0, 2*n, r)#
+#
+N <- matrix(0, n1, r) # equivalent to Ni inside of the loop#
+day1 <- day[1:n1]#
+for (j in 1:n1){#
+	for (l in 1:r) {#
+		if(day1[j] == uniqueDay[l]){#
+			N[j, l] <- 1#
+		}#
+	}#
+}#
+A11 <- matrix(0, 2*n1, n1)#
+A21 <- matrix(0, 2*n1, n1)#
+for (j in 1:n1){#
+	A11[2*j - 1, j] <- 1#
+	A21[2*j, j] <- 1#
+}#
+N1[1:(2*n1),] = A11 %*% N#
+N2[1:(2*n1),] = A21 %*% N#
+#
+for (i in 2:m) {#
+	ni <- max[i]#
+	Ni <- matrix(0, ni, r)#
+	index <- (sum(max[1:(i-1)]) + 1):sum(max[1:i]) #
+	dayi <- day[index]#
+	for (j in 1:ni){#
+		for (l in 1:r){#
+			if(dayi[j] == uniqueDay[l]) {#
+				Ni[j, l] <- 1#
+			}#
+		}#
+	}#
+	A1i <- matrix(0, 2*ni, ni) # initialize matrix A1i#
+	A2i <- matrix(0, 2*ni, ni) # initialize matrix A2i#
+	for (j in 1:ni){#
+		A1i[2*j-1, j] <- 1#
+		A2i[2*j, j] <- 1 #
+	}	#
+	rindex <- ((2*sum(max[1:(i-1)])) + 1):(2*sum(max[1:i])) #
+	N1[rindex,] <- A1i %*% Ni#
+	N2[rindex,] <- A2i %*% Ni	#
+}#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q <- matrix(0, r, r-2)#
+for(j in 1:(r-2)) {#
+	Q[j, j] <- 2#
+	Q[j + 1, j] <- -4#
+	Q[j + 2, j] <- 2#
+}#
+#
+# Define matrix R #
+R = matrix(0, r-2, r-2)#
+for (i in 1:(r-2)) {#
+	R[i, i] <- (1/3)#
+}#
+for (i in 1:(r-3)) {#
+	R[i, i + 1] <- (1/6)*(1/2)#
+	R[i + 1, i] <- (1/6)*(1/2)#
+}#
+#
+library(MASS) # to use ginv#
+K = Q %*% ginv(R) %*% t(Q)#
+# INVERSE of MATRIX C#
+#
+lambda1 <- 0.15#
+lambda2 <- 2#
+#
+# The 1st row of matrix C#
+C11 <- t(X) %*% W %*% X#
+C12 <- t(X) %*% W %*% N1#
+C13 <- t(X) %*% W %*% N2#
+CRow1 = cbind(C11, C12, C13)#
+# The 2nd row of matrix C#
+C21 <- t(N1) %*% W %*% X#
+C22 <- t(N1) %*% W %*% N1 + lambda1 * K#
+C23 <- t(N1) %*% W %*% N2#
+CRow2 = cbind(C21, C22, C23)#
+# The 2nd row of matrix C#
+C31 <- t(N2) %*% W %*% X#
+C32 <- t(N2) %*% W %*% N1#
+C33 <- t(N2) %*% W %*% N2 + lambda2 * K#
+CRow3 <- cbind(C31, C32, C33)#
+# Inverse of coefficient matrix#
+C <- rbind(CRow1, CRow2, CRow3)#
+invC <- ginv(C)
+#==============================================================================#
+# Initialization#
+#==============================================================================#
+#
+library(sde) # rsOU#
+library(MASS) # mvrnorm#
+#
+n = 30 # number of subjects#
+tp = 28 # 28 time points for one period#
+#
+#------------------------------------------------------------------------------#
+# Variance initialization #
+#
+# theta0 = c(lambda1, lambda2, phi1, phi2, phi3, sigma1, sigma2, theta12, theta13, theta22, theta23)#
+#
+par = c( 1.5, 0.5, 1.2, 0.8, 0.6, 2, 3, 2, 5, 0.15, 2)#
+#
+D = matrix(c(par[1], par[2], par[2], par[3]), 2, 2) # variance for bi#
+var_eps = c(par[4], par[5])#
+sigma = diag(var_eps) # variance for epsilon#
+# theta12 = 2 # par[6]#
+# theta13 = 3 # par[7]#
+# theta22 = 2 # par[8]#
+# theta23 = 5 # par[9]#
+# # Smoothing parameters initialization#
+# lambda1 = 0.15 # par[10]#
+# lambda2 = 2 # par[11]#
+#
+#------------------------------------------------------------------------------#
+# periodic function with period length equal to 30 days#
+t = seq(1, 30, by = 2) # 30 for 1 period, t1, ... , t15#
+f1 = 5*sin((2*pi/30)*t)#
+f2 = 3*sin((2*pi/30)*t)#
+#plot(t, f_1, type = "l")#
+#------------------------------------------------------------------------------#
+# X#
+set.seed(34)#
+age = sample(20:44, size = n, replace = T)#
+#
+X = matrix(0, 2*tp*n, 2)#
+for (i in 1:n) {#
+	# the first column of 1st subject of Xi is age[1], 0, age[2], 0...#
+	X[((2*tp)*(i-1)+1):(2*tp*i), 1] = rep(c(age[i], 0), tp) 	#
+	# the second column of 1st subject of Xi is 0, age[1], 0, age[2]...#
+	X[((2*tp)*(i-1)+1):(2*tp*i), 2] = rep(c(0, age[i]), tp) #
+}#
+#------------------------------------------------------------------------------#
+# Initializaiton of beta1#
+beta1 = -0.5#
+#==============================================================================#
+# Matrices that does not depend on Y#
+#==============================================================================#
+#
+# A function that return a block matrix, code found online.#
+blockMatrixDiagonal <- function(...) {#
+	matrixList <- list(...)#
+	if(is.list(matrixList[[1]])) matrixList <- matrixList[[1]]#
+	dimensions <- sapply(matrixList, FUN = function(x) dim(x)[1])#
+	finalDimension <- sum(dimensions)#
+  	finalMatrix<-matrix(0, nrow=finalDimension, ncol=finalDimension)#
+	index <- 1#
+	for (k in 1:length(dimensions)) {#
+		finalMatrix[index:(index+dimensions[k]-1), index:(index + dimensions[k] -1)] <- matrixList[[k]]#
+		index <- index + dimensions[k]#
+	}#
+	finalMatrix#
+}#
+# the variance #
+Zi = matrix(0, 2*tp, 2) # initialize matrix Zi#
+Zi[ ,1] = rep(c(1, 0), tp) # the first column of Zi is 1, 0, 1, 0...#
+Zi[ ,2] = rep(c(0, 1), tp) # the second column of Zi is 0, 1, 0, 1...#
+#
+sigma_i = diag(rep(var_eps, tp))#
+#
+gamma_i = matrix(0, 2*tp, 2*tp)#
+for (i in 1:tp) {#
+	gamma_i[2*i - 1, ] = rep(c(9/4, 0), tp) #
+	gamma_i[2*i, ] = rep(c(25/4, 0), tp)#
+	}#
+#
+Vi = Zi %*% D %*% t(Zi) + sigma_i + gamma_i#
+Wi = solve(Vi)#
+W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+# Incidence matrices N1 & N2#
+#
+NTemp = diag(1, tp, tp) #
+z = matrix(0, tp, tp) # matrix of zeros #
+N1i = matrix(0, 2*tp, tp) #
+for(i in 1:tp) {#
+	N1i[(2*i-1):(2*i),] = rbind(NTemp[i, ], z[i, ])#
+}#
+N2i = matrix(0, 2*tp, tp) #
+for(i in 1:tp) {#
+	N2i[(2*i-1):(2*i),] = rbind(z[i, ], NTemp[i, ])#
+}#
+N1  = do.call("rbind", replicate(n, N1i, simplify = F))#
+N2  = do.call("rbind", replicate(n, N2i, simplify = F))#
+# INVERSE of MATRIX C#
+#
+lambda1 = 0.15#
+lambda2 = 2#
+#
+# The 1st row of matrix C#
+C11 = t(X) %*% W %*% X#
+C12 = t(X) %*% W %*% N1#
+C13 = t(X) %*% W %*% N2#
+CRow1 = cbind(C11, C12, C13)#
+# The 2nd row of matrix C#
+C21 = t(N1) %*% W %*% X#
+C22 = t(N1) %*% W %*% N1 + lambda1 * K#
+C23 = t(N1) %*% W %*% N2#
+CRow2 = cbind(C21, C22, C23)#
+# The 2nd row of matrix C#
+C31 = t(N2) %*% W %*% X#
+C32 = t(N2) %*% W %*% N1#
+C33 = t(N2) %*% W %*% N2 + lambda2 * K#
+CRow3 = cbind(C31, C32, C33)#
+# Inverse of coefficient matrix#
+C = rbind(CRow1, CRow2, CRow3)#
+invC = ginv(C)
+# Bivaraite simulations, one cycle, known variances & smoothing parameters#
+#
+#==============================================================================#
+# Initialization#
+#==============================================================================#
+#
+library(sde) # rsOU#
+library(MASS) # mvrnorm#
+#
+n = 30 # number of subjects#
+tp = 28 # 28 time points for one period#
+#
+#------------------------------------------------------------------------------#
+# Variance initialization #
+#
+# theta0 = c(lambda1, lambda2, phi1, phi2, phi3, sigma1, sigma2, theta12, theta13, theta22, theta23)#
+#
+par = c( 1.5, 0.5, 1.2, 0.8, 0.6, 2, 3, 2, 5, 0.15, 2)#
+#
+D = matrix(c(par[1], par[2], par[2], par[3]), 2, 2) # variance for bi#
+var_eps = c(par[4], par[5])#
+sigma = diag(var_eps) # variance for epsilon#
+# theta12 = 2 # par[6]#
+# theta13 = 3 # par[7]#
+# theta22 = 2 # par[8]#
+# theta23 = 5 # par[9]#
+# # Smoothing parameters initialization#
+# lambda1 = 0.15 # par[10]#
+# lambda2 = 2 # par[11]#
+#
+#------------------------------------------------------------------------------#
+# periodic function with period length equal to 30 days#
+t = seq(1, 28) # #
+f1 = 5*sin((2*pi/tp)*t)#
+f2 = 3*cos((2*pi/tp)*t)#
+#plot(t, f_1, type = "l")#
+#------------------------------------------------------------------------------#
+# X#
+set.seed(34)#
+age = sample(20:44, size = n, replace = T)#
+#
+X = matrix(0, 2*tp*n, 2)#
+for (i in 1:n) {#
+	# the first column of 1st subject of Xi is age[1], 0, age[2], 0...#
+	X[((2*tp)*(i-1)+1):(2*tp*i), 1] = rep(c(age[i], 0), tp) 	#
+	# the second column of 1st subject of Xi is 0, age[1], 0, age[2]...#
+	X[((2*tp)*(i-1)+1):(2*tp*i), 2] = rep(c(0, age[i]), tp) #
+}#
+#------------------------------------------------------------------------------#
+# Initializaiton of beta1#
+beta11 = 0.03#
+beta21 = 0.07#
+#==============================================================================#
+# Matrices that does not depend on Y#
+#==============================================================================#
+#
+# A function that return a block matrix, code found online.#
+blockMatrixDiagonal <- function(...) {#
+	matrixList <- list(...)#
+	if(is.list(matrixList[[1]])) matrixList <- matrixList[[1]]#
+	dimensions <- sapply(matrixList, FUN = function(x) dim(x)[1])#
+	finalDimension <- sum(dimensions)#
+  	finalMatrix<-matrix(0, nrow=finalDimension, ncol=finalDimension)#
+	index <- 1#
+	for (k in 1:length(dimensions)) {#
+		finalMatrix[index:(index+dimensions[k]-1), index:(index + dimensions[k] -1)] <- matrixList[[k]]#
+		index <- index + dimensions[k]#
+	}#
+	finalMatrix#
+}#
+# the variance #
+Zi = matrix(0, 2*tp, 2) # initialize matrix Zi#
+Zi[ ,1] = rep(c(1, 0), tp) # the first column of Zi is 1, 0, 1, 0...#
+Zi[ ,2] = rep(c(0, 1), tp) # the second column of Zi is 0, 1, 0, 1...#
+#
+sigma_i = diag(rep(var_eps, tp))#
+#
+gamma_i = matrix(0, 2*tp, 2*tp)#
+for (i in 1:tp) {#
+	gamma_i[2*i - 1, ] = rep(c(9/4, 0), tp) #
+	gamma_i[2*i, ] = rep(c(25/4, 0), tp)#
+	}#
+#
+Vi = Zi %*% D %*% t(Zi) + sigma_i + gamma_i#
+Wi = solve(Vi)#
+W = do.call("blockMatrixDiagonal", replicate(n, Wi, simplify = F))#
+# Matrix K, does not depend on theta#
+#
+# Define matrix Q, double checked.#
+Q = matrix(0, tp, tp-2)#
+for(j in 1:(tp-2)) {#
+	Q[j, j] = 1/2#
+	Q[j + 1, j] = -1#
+	Q[j + 2, j] = 1/2#
+}#
+#
+# Define matrix R #
+R = matrix(0, tp-2, tp-2)#
+for (i in 1:(tp-2)) {#
+	R[i, i] = (1/3)*4#
+}#
+for (i in 1:(tp-3)) {#
+	R[i, i + 1] = (1/6)*2#
+	R[i + 1, i] = (1/6)*2#
+}#
+#
+K = Q %*% ginv(R) %*% t(Q)#
+# Incidence matrices N1 & N2#
+#
+NTemp = diag(1, tp, tp) #
+z = matrix(0, tp, tp) # matrix of zeros #
+N1i = matrix(0, 2*tp, tp) #
+for(i in 1:tp) {#
+	N1i[(2*i-1):(2*i),] = rbind(NTemp[i, ], z[i, ])#
+}#
+N2i = matrix(0, 2*tp, tp) #
+for(i in 1:tp) {#
+	N2i[(2*i-1):(2*i),] = rbind(z[i, ], NTemp[i, ])#
+}#
+N1  = do.call("rbind", replicate(n, N1i, simplify = F))#
+N2  = do.call("rbind", replicate(n, N2i, simplify = F))#
+# INVERSE of MATRIX C#
+#
+lambda1 = 0.15#
+lambda2 = 2#
+#
+# The 1st row of matrix C#
+C11 = t(X) %*% W %*% X#
+C12 = t(X) %*% W %*% N1#
+C13 = t(X) %*% W %*% N2#
+CRow1 = cbind(C11, C12, C13)#
+# The 2nd row of matrix C#
+C21 = t(N1) %*% W %*% X#
+C22 = t(N1) %*% W %*% N1 + lambda1 * K#
+C23 = t(N1) %*% W %*% N2#
+CRow2 = cbind(C21, C22, C23)#
+# The 2nd row of matrix C#
+C31 = t(N2) %*% W %*% X#
+C32 = t(N2) %*% W %*% N1#
+C33 = t(N2) %*% W %*% N2 + lambda2 * K#
+CRow3 = cbind(C31, C32, C33)#
+# Inverse of coefficient matrix#
+C = rbind(CRow1, CRow2, CRow3)#
+invC = ginv(C)#
+#==============================================================================#
+# Simulation#
+#==============================================================================#
+#
+sim = 100 # number of simulation#
+#
+# Store simulation results, each column corresponds to a simulation result. #
+betaHat = matrix(0, 2, sim)#
+f1Hat = matrix(0, tp, sim)#
+f2Hat = matrix(0, tp, sim)#
+#
+# Store the final simulation estimates into matrices, average of beta and fhat#
+beta.sim = matrix(0, 2, 1)#
+f1.sim = matrix(0, tp, 1)#
+f2.sim = matrix(0, tp, 1)
+for (j in 1:sim) {#
+		# random intercepts;#
+		b = mvrnorm(n, c(0, 0), D) #
+#
+		# measurement error - epsilon#
+		eps = mvrnorm(n*tp, c(0, 0), sigma)#
+		eps1 = matrix(eps[,1], n, tp)#
+		eps2 = matrix(eps[,2], n, tp)#
+		# bivariate Gaussian field#
+		tempU_1 = rsOU(n*tp, theta=c(0, par[6], par[7])) # theta12 = 2, theta13 = 3#
+		tempU_2 = rsOU(n*tp, theta=c(0, par[8], par[9])) # theta22 = 2, theta23 = 5#
+		u1 = matrix(tempU_1, n, tp)#
+		u2 = matrix(tempU_2, n, tp)#
+		# bivariate Longitudinal data Y#
+		tempResponse = matrix(rep(0, 2*n*tp), 2*n, tp)#
+		for (i in 1:n) {#
+			# every two rows are one subject#
+			tempResponse[(2*i-1),] = beta11*age[i] + f1 + b[i, 1] + u1[i,] + eps1[i,]#
+			tempResponse[2*i,] = beta21*age[i] + f2 + b[i, 2] + u2[i,] + eps2[i,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# ESTIMATES FOR beta, f1 AND f2#
+		temp = rbind(t(X) %*% W %*% Y, t(N1) %*% W %*% Y, t(N2) %*% W %*% Y)#
+		est = invC %*% temp#
+		betaHat[,j] = est[1:2] #
+		f1Hat[,j] = matrix(est[3:30])#
+		f2Hat[,j] = matrix(est[31:58])#
+		# res <- Y - X %*% betaHat[,j] - N1i %*% f1Hat[,j] - N2i %*% f2Hat[,j]#
+		# bi <- D %*% t(Zi) %*% W %*% res#
+	}#
+	beta.sim[1] = mean(betaHat[1,])#
+	beta.sim[2] = mean(betaHat[2,])#
+#
+	for (k in 1:tp) {#
+		f1.sim[k, ] = mean(f1Hat[k,])#
+		f2.sim[k, ] = mean(f2Hat[k,])#
+	}
+for (m in 1:sim) {#
+		plot(f1Hat[,m], type = "l", ylim = c(-10, 10), ylab = "f1Hat")#
+		par(new = T)#
+	}#
+	for (m in 1:sim) {#
+		plot(f2Hat[,m], type = "l", ylim = c(-10, 10), ylab = "f1Hat")#
+		par(new = T)#
+	}
+for (m in 1:sim) {#
+		plot(f2Hat[,m], type = "l", ylim = c(-10, 10), ylab = "f1Hat")#
+		par(new = T)#
+	}
+for (m in 1:sim) {#
+		plot(f2Hat[,m], type = "l", ylim = c(-10, 10), ylab = "f2Hat")#
+		par(new = T)#
+	}
+plot(t, f2, type = "l")
+plot(t, f1, type = "l")
+plot(f1.sim, type = "l")
+plot(f2.sim, type = "l")
+dim(N1i)
+dim(N2i)
+dim(f1Hat[,j])
+length(f1Hat[,j])
+dim(N1i %*% f1Hat[,j])
+dim(Y)
+2*30*tp
+dim(N1)
+dim(X)
+Z = do.call("blockMatrixDiagonal", replicate(n, Zi, simplify = F))
+dim(Z)
+dim(D)
+dim(Zi)
+# the variance #
+Zi = matrix(0, 2*tp, 2) # initialize matrix Zi#
+Zi[ ,1] = rep(c(1, 0), tp) # the first column of Zi is 1, 0, 1, 0...#
+Zi[ ,2] = rep(c(0, 1), tp) # the second column of Zi is 0, 1, 0, 1...#
+Z  = do.call("rbind", replicate(n, Zi, simplify = F))
+dim(Z)
+bHat = matrix(0, 2, sim)
+for (j in 1:sim) {#
+		# random intercepts;#
+		b = mvrnorm(n, c(0, 0), D) #
+#
+		# measurement error - epsilon#
+		eps = mvrnorm(n*tp, c(0, 0), sigma)#
+		eps1 = matrix(eps[,1], n, tp)#
+		eps2 = matrix(eps[,2], n, tp)#
+		# bivariate Gaussian field#
+		tempU_1 = rsOU(n*tp, theta=c(0, par[6], par[7])) # theta12 = 2, theta13 = 3#
+		tempU_2 = rsOU(n*tp, theta=c(0, par[8], par[9])) # theta22 = 2, theta23 = 5#
+		u1 = matrix(tempU_1, n, tp)#
+		u2 = matrix(tempU_2, n, tp)#
+		# bivariate Longitudinal data Y#
+		tempResponse = matrix(rep(0, 2*n*tp), 2*n, tp)#
+		for (i in 1:n) {#
+			# every two rows are one subject#
+			tempResponse[(2*i-1),] = beta11*age[i] + f1 + b[i, 1] + u1[i,] + eps1[i,]#
+			tempResponse[2*i,] = beta21*age[i] + f2 + b[i, 2] + u2[i,] + eps2[i,]#
+		}#
+		Y = as.vector(t(tempResponse))#
+		Y = as.matrix(round(Y))#
+		# ESTIMATES FOR beta, f1 AND f2#
+		temp = rbind(t(X) %*% W %*% Y, t(N1) %*% W %*% Y, t(N2) %*% W %*% Y)#
+		est = invC %*% temp#
+		betaHat[,j] = est[1:2] #
+		f1Hat[,j] = matrix(est[3:30])#
+		f2Hat[,j] = matrix(est[31:58])#
+		res <- Y - X %*% betaHat[,j] - N1 %*% f1Hat[,j] - N2 %*% f2Hat[,j]#
+		b <- D %*% t(Z) %*% W %*% res#
+	}
+W1inv <- ginv(C22)#
+W2inv <- ginv(C33)#
+#
+a <- W %*% N1#
+b <- a %*% W1inv#
+c <- b %*% t(a)#
+W1 <- W - c#
+a1 <- W %*% N2#
+W2 <- W - b %*% W2inv %*% t(b)
+invX <- t(N2) %*% W1 %*% N2 + lambda2 * K#
+WxInv <- ginv(invX)#
+invF1 <- t(X) %*% W2 %*% X#
+Wf1Inv <- ginv(invF1)#
+invF2 <- t(X) %*% W1 %*% X#
+Wf2Inv <- ginv(invF2)#
+#
+a2 <- W1 %*% N2#
+Wx <- W1 - W1 %*% N2 %*% WxInv %*% t(N2) %*% W1#
+Wf1 <- W2 - W2 %*% X %*% Wf1Inv %*% X %*% W2#
+Wf2 <- W1 - W1 %*% X %*% Wf2Inv %*% X %*% W1
+invB <- t(X) %*% Wx %*% X#
+betaInv <- ginv(invB) #
+hatB <-  betaInv %*% t(X) %*% Wx#
+covBeta <- hatB %*% V %*% t(hatB)
+V = do.call("blockMatrixDiagonal", replicate(n, Vi, simplify = F))
+covBeta <- hatB %*% V %*% t(hatB)
+covBeta
+beta.sim[1] = mean(betaHat[1,])#
+	beta.sim[2] = mean(betaHat[2,])
+beta.sim

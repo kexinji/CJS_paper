@@ -1,0 +1,44 @@
+% Document settings
+\documentclass[12pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[pdftex]{graphicx}
+\usepackage{multirow}
+\usepackage{setspace}
+\usepackage{hyperref}
+
+\usepackage{color}
+
+\usepackage{amsmath,amssymb,amstext} 
+
+\pagestyle{plain}
+
+
+
+\begin{document}
+
+{\large \bf Univariate simulation}
+
+For fixed regression parameter $\beta_1$, non-parametric function $f$, variance components  
+$\boldsymbol  \theta = (\phi, \sigma^2, \theta_2, \theta_3)$, 
+we generate the covariate $X$, the random intercept $b_i$, the OU process $U_i$ and the measurement error $\epsilon$ with the assumption that all observation time points are the same for all subjects $t_i = t$. 
+Denote $Y_{ij}$ to be the univariate hormone response for subject $i$ at time point $j$,  we simulate the longitudinal response data according to the model 
+$$
+Y_{ij} = \beta_1 {\rm age}_i + f(t_{i}) + b_i + U_i(t_{ij}) + \epsilon_{ij}. 
+$$
+where the nonparametric periodic function of time is generated from the sine function 
+$
+f(t) = 5  \sin(\pi t/15)
+$
+with period length 30;  the $b_i$ are independent random intercepts following a normal distribution with mean zero and variance $\phi$; the mean-zero Gaussian process $U_i$ modelling the serial correlation are simulated from stationary OU process with covariance function ${\mathrm cov}(U_i (s), U_i(t)) = {\theta_3^2 {\mathrm exp}\{-\theta_2|s - t|\} / 2\theta_2}$, and the independent measurement errors $\epsilon_i$ are from Normal distribution with mean zero and variance $\sigma^2$. The simulated response is of one cycle for now.
+
+
+
+The variance components $\bf \theta = (\phi, \sigma^2, \theta_2, \theta_3)$ and the smoothing parameter $\lambda$ will be estimated using Fisher-Scoring algorithm. 
+
+
+
+
+\end{document}
+
+
+
