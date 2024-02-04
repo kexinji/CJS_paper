@@ -1,0 +1,14 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{The Bivariate Semiparametric Stochastic Mixed Effects Model}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{General Bivariate Longitudinal Model with Joint Distribution of Random Effects}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{The Gaussian Field Specification}{section.2}% 4
+\BOOKMARK [1][-]{section.3}{Estimation and Inference}{}% 5
+\BOOKMARK [2][-]{subsection.3.1}{Matrix Notation}{section.3}% 6
+\BOOKMARK [2][-]{subsection.3.2}{Estimation of Model Coefficients, Nonparametric Function, Random Effects and Gaussian Fields}{section.3}% 7
+\BOOKMARK [2][-]{subsection.3.3}{Biases and Covariances of Model Coefficients, Nonparametric Function, Random Effects and Gaussian Fields}{section.3}% 8
+\BOOKMARK [2][-]{subsection.3.4}{Estimation of the Smoothing Parameters and Variance Parameters}{section.3}% 9
+\BOOKMARK [1][-]{section.4}{Simulations}{}% 10
+\BOOKMARK [2][-]{subsection.4.1}{Data Generation and Simulation Results}{section.4}% 11
+\BOOKMARK [2][-]{subsection.4.2}{Misspecification of Gaussian Fields}{section.4}% 12
+\BOOKMARK [1][-]{section.5}{Bivariate Longitudinal Hormone Data Analysis}{}% 13
+\BOOKMARK [1][-]{section.6}{Discussions}{}% 14

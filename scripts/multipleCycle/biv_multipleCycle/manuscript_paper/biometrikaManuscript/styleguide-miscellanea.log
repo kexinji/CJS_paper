@@ -1,0 +1,731 @@
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017) (preloaded format=pdflatex 2017.5.23)  20 SEP 2017 14:24
+entering extended mode
+ restricted \write18 enabled.
+ file:line:error style messages enabled.
+ %&-line parsing enabled.
+**styleguide-miscellanea.tex
+(./styleguide-miscellanea.tex
+LaTeX2e <2017-04-15>
+Babel <3.10> and hyphenation patterns for 84 language(s) loaded.
+(./biometrika.cls
+Document Class: biometrika 2009/25/05 v1.5 Standard LaTeX document class
+\draftrule=\dimen102
+\trimrule=\dimen103
+(./Biomet-lineno.sty (./lineno.sty
+Package: lineno 2005/11/02 line numbers on paragraphs v4.41
+\linenopenalty=\count79
+\output=\toks14
+\linenoprevgraf=\count80
+\linenumbersep=\dimen104
+\linenumberwidth=\dimen105
+\c@linenumber=\count81
+\c@pagewiselinenumber=\count82
+\c@LN@truepage=\count83
+\c@internallinenumber=\count84
+\c@internallinenumbers=\count85
+\quotelinenumbersep=\dimen106
+\bframerule=\dimen107
+\bframesep=\dimen108
+\bframebox=\box26
+LaTeX Info: Redefining \\ on input line 3056.
+))
+\minute=\count86
+\hour=\count87
+\trimwidth=\dimen109
+\trimheight=\dimen110
+\typewidth=\dimen111
+\typeheight=\dimen112
+\tempdimen=\dimen113
+\normaltextheight=\dimen114
+\normalbaselineskip=\skip41
+\blindfoliodrop=\dimen115
+\enumdim=\dimen116
+\figheight=\dimen117
+\figwidth=\dimen118
+\tabledim=\dimen119
+\tableleftskip=\skip42
+\tablerightskip=\skip43
+\mathindent=\dimen120
+\emathindent=\dimen121
+\bibindent=\dimen122
+\tempbox=\box27
+\aucount=\count88
+\affcount=\count89
+\articlecount=\count90
+\abbrebox=\box28
+\c@part=\count91
+\c@chapter=\count92
+\c@section=\count93
+\c@subsection=\count94
+\topsepi=\skip44
+\topsepii=\skip45
+\topsepiii=\skip46
+\itemsepi=\skip47
+\itemsepii=\skip48
+\itemsepiii=\skip49
+\LabelSep=\dimen123
+\deflistcount=\count95
+\listtextleftmargin=\skip50
+\listtextleftmarginii=\skip51
+\listtextleftmarginiii=\skip52
+\listtextrightmargin=\skip53
+\listlabelleftskip=\skip54
+\listlabelleftskipii=\skip55
+\listlabelleftskipiii=\skip56
+\abovelistskipi=\skip57
+\belowlistskipi=\skip58
+\abovelistskipii=\skip59
+\belowlistskipii=\skip60
+\abovelistskipiii=\skip61
+\belowlistskipiii=\skip62
+\labelsepi=\skip63
+\labelsepii=\skip64
+\labelsepiii=\skip65
+\enumdimwd=\dimen124
+\unnumlistindent=\dimen125
+\itemleftmargin=\dimen126
+\itemlabelsep=\dimen127
+\c@ncount=\count96
+\abovecaptionskip=\skip66
+\belowcaptionskip=\skip67
+\c@figure=\count97
+\tempadimen=\dimen128
+
+(/usr/local/texlive/2017/texmf-dist/tex/generic/epsf/epsf.sty
+This is `epsf.tex' v2.7.4 <14 February 2011>
+\epsffilein=\read1
+\epsfframemargin=\dimen129
+\epsfframethickness=\dimen130
+\epsfrsize=\dimen131
+\epsftmp=\dimen132
+\epsftsize=\dimen133
+\epsfxsize=\dimen134
+\epsfysize=\dimen135
+\pspoints=\dimen136
+)
+\figtempbox=\box29
+\c@table=\count98
+\@footmax=\dimen137
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <8> on input line 1292.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <6> on input line 1292.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <5> on input line 1292.
+\bibindent=\dimen138
+\bibleftmargin=\dimen139
+\bibitemsep=\dimen140
+\bibparsep=\dimen141
+\bibtext=\dimen142
+\biblabelsep=\dimen143
+\bibleftmargini=\dimen144
+\linecount=\count99
+\tempcount=\count100
+ (./ntheorem.sty
+Style `ntheorem', Version 1.24 <2004/09/20>
+Package: ntheorem 2004/09/20 1.24
+\theorem@style=\toks15
+\theorem@@style=\toks16
+\theorembodyfont=\toks17
+\theoremnumbering=\toks18
+\theorempreskipamount=\skip68
+\theorempostskipamount=\skip69
+\theoremindent=\dimen145
+\theorem@indent=\dimen146
+\theoremheaderfont=\toks19
+\theoremseparator=\toks20
+\theoremprework=\toks21
+\theorempostwork=\toks22
+\theoremsymbol=\toks23
+\qedsymbol=\toks24
+\theoremkeyword=\toks25
+\qedsymbol=\toks26
+\thm@topsepadd=\skip70
+Package ntheorem Info: Option `thmmarks' loaded on input line 1031.
+\c@endNonectr=\count101
+\c@currNonectr=\count102
+\mysavskip=\skip71
+)
+\c@currtheoremctr=\count103
+\c@endtheoremctr=\count104
+\c@theorem=\count105
+\c@currlemmactr=\count106
+\c@endlemmactr=\count107
+\c@lemma=\count108
+\c@currcorollaryctr=\count109
+\c@endcorollaryctr=\count110
+\c@corollary=\count111
+\c@currpropositionctr=\count112
+\c@endpropositionctr=\count113
+\c@proposition=\count114
+\c@currdefinitionctr=\count115
+\c@enddefinitionctr=\count116
+\c@definition=\count117
+\c@currassumptionctr=\count118
+\c@endassumptionctr=\count119
+\c@assumption=\count120
+\c@currremarkctr=\count121
+\c@endremarkctr=\count122
+\c@remark=\count123
+\c@currstepctr=\count124
+\c@endstepctr=\count125
+\c@step=\count126
+\c@currconditionctr=\count127
+\c@endconditionctr=\count128
+\c@condition=\count129
+\c@currpropertyctr=\count130
+\c@endpropertyctr=\count131
+\c@property=\count132
+\c@currrestrictionctr=\count133
+\c@endrestrictionctr=\count134
+\c@restriction=\count135
+\c@currexamplectr=\count136
+\c@endexamplectr=\count137
+\c@example=\count138
+\c@curralgoctr=\count139
+\c@endalgoctr=\count140
+\c@algo=\count141
+\c@currproofctr=\count142
+\c@endproofctr=\count143
+\c@proof=\count144
+ (/usr/local/texlive/2017/texmf-dist/tex/latex/natbib/natbib.sty
+Package: natbib 2010/09/13 8.31b (PWD, AO)
+\bibhang=\skip72
+\bibsep=\skip73
+LaTeX Info: Redefining \cite on input line 694.
+\c@NAT@ctr=\count145
+))
+(/usr/local/texlive/2017/texmf-dist/tex/latex/amsmath/amsmath.sty
+Package: amsmath 2016/11/05 v2.16a AMS math features
+\@mathmargin=\skip74
+
+For additional information on amsmath, use the `?' option.
+(/usr/local/texlive/2017/texmf-dist/tex/latex/amsmath/amstext.sty
+Package: amstext 2000/06/29 v2.01 AMS text
+
+(/usr/local/texlive/2017/texmf-dist/tex/latex/amsmath/amsgen.sty
+File: amsgen.sty 1999/11/30 v2.0 generic functions
+\@emptytoks=\toks27
+\ex@=\dimen147
+)
+LaTeX Info: Redefining \text on input line 28.
+)
+(/usr/local/texlive/2017/texmf-dist/tex/latex/amsmath/amsbsy.sty
+Package: amsbsy 1999/11/29 v1.2d Bold Symbols
+\pmbraise@=\dimen148
+)
+(/usr/local/texlive/2017/texmf-dist/tex/latex/amsmath/amsopn.sty
+Package: amsopn 2016/03/08 v2.02 operator names
+)
+\inf@bad=\count146
+LaTeX Info: Redefining \frac on input line 213.
+\uproot@=\count147
+\leftroot@=\count148
+LaTeX Info: Redefining \overline on input line 375.
+\classnum@=\count149
+\DOTSCASE@=\count150
+LaTeX Info: Redefining \ldots on input line 472.
+LaTeX Info: Redefining \dots on input line 475.
+LaTeX Info: Redefining \cdots on input line 596.
+\Mathstrutbox@=\box30
+\strutbox@=\box31
+\big@size=\dimen149
+LaTeX Font Info:    Redeclaring font encoding OML on input line 712.
+LaTeX Font Info:    Redeclaring font encoding OMS on input line 713.
+\macc@depth=\count151
+\c@MaxMatrixCols=\count152
+\dotsspace@=\muskip10
+\c@parentequation=\count153
+\dspbrk@lvl=\count154
+\tag@help=\toks28
+\row@=\count155
+\column@=\count156
+\maxfields@=\count157
+\andhelp@=\toks29
+\eqnshift@=\dimen150
+\alignsep@=\dimen151
+\tagshift@=\dimen152
+\tagwidth@=\dimen153
+\totwidth@=\dimen154
+\lineht@=\dimen155
+\@envbody=\toks30
+\multlinegap=\skip75
+\multlinetaggap=\skip76
+\mathdisplay@stack=\toks31
+LaTeX Info: Redefining \[ on input line 2817.
+LaTeX Info: Redefining \] on input line 2818.
+)
+(/usr/local/texlive/2017/texmf-dist/tex/latex/psnfss/times.sty
+Package: times 2005/04/12 PSNFSS-v9.2a (SPQR) 
+)
+(/usr/local/texlive/2017/texmf-dist/tex/latex/tools/bm.sty
+Package: bm 2017/01/16 v1.2c Bold Symbol Support (DPC/FMi)
+\symboldoperators=\mathgroup4
+\symboldletters=\mathgroup5
+\symboldsymbols=\mathgroup6
+LaTeX Font Info:    Redeclaring math alphabet \mathbf on input line 141.
+LaTeX Info: Redefining \bm on input line 207.
+)
+(/usr/local/texlive/2017/texmf-dist/tex/latex/algorithm2e/algorithm2e.sty
+Package: algorithm2e 2013/01/06 v5.00 algorithms environments
+\c@AlgoLine=\count158
+
+(/usr/local/texlive/2017/texmf-dist/tex/latex/base/ifthen.sty
+Package: ifthen 2014/09/29 v1.1c Standard LaTeX ifthen package (DPC)
+)
+\algocf@hangindent=\skip77
+
+(/usr/local/texlive/2017/texmf-dist/tex/latex/tools/xspace.sty
+Package: xspace 2014/10/28 v1.13 Space after command names (DPC,MH)
+)
+(/usr/local/texlive/2017/texmf-dist/tex/latex/relsize/relsize.sty
+Package: relsize 2013/03/29 ver 4.1
+)
+********************************************************
+Package `algorithm2e' Release 5.1 -- october 19 2015 --
+- algorithm2e-announce@lirmm.fr mailing list for announcement about releases
+- algorithm2e-discussion@lirmm.fr mailing list for discussion about package
+subscribe by emailing sympa@lirmm.fr with 'subscribe <list> <firstname name>'
+- Author: Christophe Fiorio (christophe.fiorio@umontpellier.fr)
+********************************************************
+\skiptotal=\skip78
+\skiplinenumber=\skip79
+\skiprule=\skip80
+\skiphlne=\skip81
+\skiptext=\skip82
+\skiplength=\skip83
+\algomargin=\skip84
+\skipalgocfslide=\skip85
+\algowidth=\dimen156
+\inoutsize=\dimen157
+\inoutindent=\dimen158
+\interspacetitleruled=\dimen159
+\interspacealgoruled=\dimen160
+\interspacetitleboxruled=\dimen161
+\algocf@ruledwidth=\skip86
+\algocf@inoutbox=\box32
+\algocf@inputbox=\box33
+\AlCapSkip=\skip87
+\AlCapHSkip=\skip88
+\algoskipindent=\skip89
+\algocf@nlbox=\box34
+\algocf@hangingbox=\box35
+\algocf@untilbox=\box36
+\algocf@skipuntil=\skip90
+\algocf@capbox=\box37
+\algoheightruledefault=\skip91
+\algoheightrule=\skip92
+\algotitleheightruledefault=\skip93
+\algotitleheightrule=\skip94
+\c@algocfline=\count159
+\c@algocfproc=\count160
+\c@algocf=\count161
+\algocf@algoframe=\box38
+\algocf@algobox=\box39
+) (./styleguide-miscellanea.aux)
+\openout1 = `styleguide-miscellanea.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 40.
+LaTeX Font Info:    ... okay on input line 40.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 40.
+LaTeX Font Info:    ... okay on input line 40.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 40.
+LaTeX Font Info:    ... okay on input line 40.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 40.
+LaTeX Font Info:    ... okay on input line 40.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 40.
+LaTeX Font Info:    ... okay on input line 40.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 40.
+LaTeX Font Info:    ... okay on input line 40.
+LaTeX Font Info:    Try loading font information for OT1+ptm on input line 40.
+
+(/usr/local/texlive/2017/texmf-dist/tex/latex/psnfss/ot1ptm.fd
+File: ot1ptm.fd 2001/06/04 font definitions for OT1/ptm.
+)
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <16> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 71.
+LaTeX Font Info:    Try loading font information for OT1+phv on input line 71.
+
+(/usr/local/texlive/2017/texmf-dist/tex/latex/psnfss/ot1phv.fd
+File: ot1phv.fd 2001/06/04 scalable font definitions for OT1/phv.
+)
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <10> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 86.
+
+
+Package natbib Warning: Citation `brumback' on page 1 undefined on input line 8
+6.
+
+
+Package natbib Warning: Citation `verbyla' on page 1 undefined on input line 87
+.
+
+
+Package natbib Warning: Citation `brumback' on page 1 undefined on input line 8
+7.
+
+
+Package natbib Warning: Citation `taylor' on page 1 undefined on input line 89.
+
+
+
+Package natbib Warning: Citation `zhang' on page 1 undefined on input line 89.
+
+
+Package natbib Warning: Citation `zhang00' on page 1 undefined on input line 89
+.
+
+
+Package natbib Warning: Citation `welham06' on page 1 undefined on input line 8
+9.
+
+
+Package natbib Warning: Citation `meyer' on page 1 undefined on input line 89.
+
+
+Package natbib Warning: Citation `wood' on page 1 undefined on input line 90.
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 91.
+
+Overfull \vbox (9.51196pt too high) has occurred while \output is active []
+
+
+[1{/usr/local/texlive/2017/texmf-var/fonts/map/pdftex/updmap/pdftex.map}
+
+]
+
+Package natbib Warning: Citation `liu' on page 2 undefined on input line 92.
+
+
+Package natbib Warning: Citation `sy' on page 2 undefined on input line 93.
+
+
+Package natbib Warning: Citation `zhang' on page 2 undefined on input line 96.
+
+
+Package natbib Warning: Citation `zhang00' on page 2 undefined on input line 96
+.
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 145--158
+\OT1/ptm/m/n/10 where $\OML/cmm/m/it/10 ^^X[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 
+t\OT1/cmr/m/n/10 )$ \OT1/ptm/m/n/10 and $\OML/cmm/m/it/10 ^^X[]\OT1/cmr/m/n/10 
+(\OML/cmm/m/it/10 t\OT1/cmr/m/n/10 )$ \OT1/ptm/m/n/10 are pe-ri-odic vari-ance 
+func-tions; $[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 U[]\OT1/cmr/m/n/10 (\OML/cmm/m
+/it/10 t\OT1/cmr/m/n/10 )\OML/cmm/m/it/10 ; U[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/1
+0 s\OT1/cmr/m/n/10 )) = \OML/cmm/m/it/10 ^^Q[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10
+ ^^Z[]\OT1/cmr/m/n/10 ; \OML/cmm/m/it/10 s; t\OT1/cmr/m/n/10 )$\OT1/ptm/m/n/10 
+,
+ []
+
+
+Underfull \hbox (badness 1205) in paragraph at lines 145--158
+[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 U[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 t\OT1/
+cmr/m/n/10 )\OML/cmm/m/it/10 ; U[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 s\OT1/cmr/m
+/n/10 )) = \OML/cmm/m/it/10 ^^Q[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 ^^Z[]\OT1/cm
+r/m/n/10 ; \OML/cmm/m/it/10 s; t\OT1/cmr/m/n/10 )$\OT1/ptm/m/n/10 , and $[]\OT1
+/cmr/m/n/10 (\OML/cmm/m/it/10 U[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 t\OT1/cmr/m/
+n/10 )\OML/cmm/m/it/10 ; U[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 s\OT1/cmr/m/n/10 
+)) = \OML/cmm/m/it/10 ^^Q[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 ^^Z[]\OT1/cmr/m/n/
+10 ; \OML/cmm/m/it/10 s; t\OT1/cmr/m/n/10 )$ \OT1/ptm/m/n/10 are cor-re-la-tion
+ func-tions,
+ []
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.06897pt too high) has occurred while \output is active []
+
+
+[2]
+
+Package natbib Warning: Citation `zhang' on page 3 undefined on input line 291.
+
+
+
+Package natbib Warning: Citation `zhang00' on page 3 undefined on input line 29
+1.
+
+
+Package natbib Warning: Citation `taylor' on page 3 undefined on input line 299
+.
+
+
+Package natbib Warning: Citation `koralov' on page 3 undefined on input line 29
+9.
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.1294pt too high) has occurred while \output is active []
+
+
+[3]
+Underfull \vbox (badness 1337) has occurred while \output is active []
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.06897pt too high) has occurred while \output is active []
+
+
+[4]
+
+Package amsmath Warning: Foreign command \over;
+(amsmath)                \frac or \genfrac should be used instead
+(amsmath)                 on input line 627.
+
+
+Package natbib Warning: Citation `wang2000spline' on page 5 undefined on input 
+line 635.
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.1294pt too high) has occurred while \output is active []
+
+
+[5]
+
+Package natbib Warning: Citation `Green' on page 6 undefined on input line 647.
+
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 697--731
+\OT1/ptm/m/n/10 where $\OML/cmm/b/it/10 W[] \OT1/cmr/m/n/10 = \OML/cmm/b/it/10 
+W[] \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/it/10 W[]N[]\OT1/cmr/m/n/10 (\OML/cmm/b/it/
+10 N[]W[]N[] \OT1/cmr/bx/n/10 + \OML/cmm/m/it/10 ^^U[]\OML/cmm/b/it/10 K\OT1/cm
+r/m/n/10 )[]\OML/cmm/b/it/10 N[]W[]$\OT1/ptm/m/n/10 , $\OML/cmm/b/it/10 W[] \OT
+1/cmr/m/n/10 = \OML/cmm/b/it/10 W[] \OMS/cmsy/m/n/10 ^^@
+ []
+
+
+Underfull \hbox (badness 6063) in paragraph at lines 697--731
+\OML/cmm/b/it/10 W[]X\OT1/cmr/m/n/10 (\OML/cmm/b/it/10 X[]W[]X\OT1/cmr/m/n/10 )
+[]\OML/cmm/b/it/10 X[]W[]\OML/cmm/m/it/10 ;$ \OT1/ptm/m/n/10 and $\OML/cmm/b/it
+/10 W[] \OT1/cmr/m/n/10 = \OML/cmm/b/it/10 W[] \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/
+it/10 W[]X\OT1/cmr/m/n/10 (\OML/cmm/b/it/10 X[]W[]X\OT1/cmr/m/n/10 )[]\OML/cmm/
+b/it/10 X[]W[]$ \OT1/ptm/m/n/10 are weight ma-tri-
+ []
+
+
+Underfull \hbox (badness 4217) in paragraph at lines 697--731
+\OT1/ptm/m/n/10 ces with $\OML/cmm/b/it/10 W[] \OT1/cmr/m/n/10 = \OML/cmm/b/it/
+10 W \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/it/10 WN[]\OT1/cmr/m/n/10 (\OML/cmm/b/it/1
+0 N[]WN[] \OT1/cmr/bx/n/10 + \OML/cmm/m/it/10 ^^U[]\OML/cmm/b/it/10 K\OT1/cmr/m
+/n/10 )[]\OML/cmm/b/it/10 N[]W$ \OT1/ptm/m/n/10 and $\OML/cmm/b/it/10 W[] \OT1/
+cmr/m/n/10 = \OML/cmm/b/it/10 W \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/it/10 WN[]\OT1/
+cmr/m/n/10 (\OML/cmm/b/it/10 N[]WN[] \OT1/cmr/bx/n/10 +
+ []
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.06897pt too high) has occurred while \output is active []
+
+
+[6]
+Overfull \hbox (39.87883pt too wide) detected at line 1015
+[]\OT1/cmr/m/n/10 ([](\OML/cmm/b/it/10 s[]\OT1/cmr/m/n/10 ) \OMS/cmsy/m/n/10 ^^
+@ \OML/cmm/b/it/10 U[]\OT1/cmr/m/n/10 (\OML/cmm/b/it/10 s[]\OT1/cmr/m/n/10 )) =
+ \OT1/cmr/bx/n/10 ^^@\OT1/cmr/m/n/10 (\OML/cmm/b/it/10 s[]\OML/cmm/m/it/10 ; \O
+ML/cmm/b/it/10 s[]\OT1/cmr/m/n/10 ) \OMS/cmsy/m/n/10 ^^@ \OT1/cmr/bx/n/10 ^^@\O
+T1/cmr/m/n/10 (\OML/cmm/b/it/10 s[]\OML/cmm/m/it/10 ; \OML/cmm/b/it/10 t[]\OT1/
+cmr/m/n/10 )\OML/cmm/b/it/10 W[]\OT1/cmr/bx/n/10 ^^@\OT1/cmr/m/n/10 (\OML/cmm/b
+/it/10 s[]\OML/cmm/m/it/10 ; \OML/cmm/b/it/10 t[]\OT1/cmr/m/n/10 )[] + \OT1/cmr
+/bx/n/10 ^^@\OT1/cmr/m/n/10 (\OML/cmm/b/it/10 s[]\OML/cmm/m/it/10 ; \OML/cmm/b/
+it/10 t[]\OT1/cmr/m/n/10 )\OML/cmm/b/it/10 W[]^^_[]C[]^^_[]W^^_C[]^^_[]W[]\OT1/
+cmr/bx/n/10 ^^@\OT1/cmr/m/n/10 (\OML/cmm/b/it/10 s[]\OML/cmm/m/it/10 ; \OML/cmm
+/b/it/10 t[]\OT1/cmr/m/n/10 )[]\OML/cmm/m/it/10 ;
+ []
+
+
+Package natbib Warning: Citation `green87' on page 7 undefined on input line 10
+37.
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.1294pt too high) has occurred while \output is active []
+
+
+[7]
+Overfull \hbox (35.47691pt too wide) detected at line 1114
+[] \OT1/cmr/m/n/10 = \OMS/cmsy/m/n/10 ^^@[][]\OT1/cmr/m/n/10 (\OML/cmm/b/it/10 
+P[]B[]B[]\OT1/cmr/m/n/10 ) + [](\OML/cmm/b/it/10 Y \OMS/cmsy/m/n/10 ^^@ \OML/cm
+m/b/it/10 X[] \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/it/10 N[][] \OMS/cmsy/m/n/10 ^^@ 
+\OML/cmm/b/it/10 N[][]\OT1/cmr/m/n/10 )[]\OML/cmm/b/it/10 V[]B[]B[]V[]\OT1/cmr/
+m/n/10 (\OML/cmm/b/it/10 Y \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/it/10 X[] \OMS/cmsy/
+m/n/10 ^^@ \OML/cmm/b/it/10 N[][] \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/it/10 N[][]\O
+T1/cmr/m/n/10 )\OML/cmm/m/it/10 ;
+ []
+
+
+Overfull \hbox (35.47691pt too wide) detected at line 1129
+[] \OT1/cmr/m/n/10 = \OMS/cmsy/m/n/10 ^^@[][]\OT1/cmr/m/n/10 (\OML/cmm/b/it/10 
+P[]B[]B[]\OT1/cmr/m/n/10 ) + [](\OML/cmm/b/it/10 Y \OMS/cmsy/m/n/10 ^^@ \OML/cm
+m/b/it/10 X[] \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/it/10 N[][] \OMS/cmsy/m/n/10 ^^@ 
+\OML/cmm/b/it/10 N[][]\OT1/cmr/m/n/10 )[]\OML/cmm/b/it/10 V[]B[]B[]V[]\OT1/cmr/
+m/n/10 (\OML/cmm/b/it/10 Y \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/it/10 X[] \OMS/cmsy/
+m/n/10 ^^@ \OML/cmm/b/it/10 N[][] \OMS/cmsy/m/n/10 ^^@ \OML/cmm/b/it/10 N[][]\O
+T1/cmr/m/n/10 )\OML/cmm/m/it/10 ;
+ []
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.06897pt too high) has occurred while \output is active []
+
+
+[8]
+(art/bivNOU9_Biasf.eps
+)
+
+Overfull \vbox (240.8pt too high) detected at line 1336
+ []
+
+LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <9> not available
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 1336.
+(art/bivNOU9_SEf.eps
+)
+
+Overfull \vbox (240.8pt too high) detected at line 1344
+ []
+
+(art/bivNOU9_cp.eps
+)
+
+Overfull \vbox (240.8pt too high) detected at line 1355
+ []
+
+
+Package natbib Warning: Citation `gold1995epidemiologic' on page 9 undefined on
+ input line 1382.
+
+
+Package natbib Warning: Citation `gold1995epidemiologic' on page 9 undefined on
+ input line 1384.
+
+
+Package natbib Warning: Citation `gold1995prospectively' on page 9 undefined on
+ input line 1384.
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.1294pt too high) has occurred while \output is active []
+
+
+[9]
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.06897pt too high) has occurred while \output is active []
+
+
+[10
+Non-PDF special ignored!]
+
+LaTeX Warning: Reference `Liu1' on page 11 undefined on input line 1390.
+
+
+LaTeX Warning: Reference `Liu2' on page 11 undefined on input line 1390.
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.1294pt too high) has occurred while \output is active []
+
+
+[11
+Non-PDF special ignored!]
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.06897pt too high) has occurred while \output is active []
+
+
+[12
+Non-PDF special ignored!]
+
+Package lineno Warning: Linenumber reference failed, 
+(lineno)                rerun to get it right.
+
+\tf@thm=\write3
+\openout3 = `styleguide-miscellanea.thm'.
+
+
+Package natbib Warning: There were undefined citations.
+
+
+Overfull \vbox (62.0pt too high) has occurred while \output is active []
+
+
+Overfull \vbox (1.1294pt too high) has occurred while \output is active []
+
+
+[13] (./styleguide-miscellanea.aux)
+
+LaTeX Warning: There were undefined references.
+
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+ )
+(\end occurred inside a group at level 1)
+
+### simple group (level 1) entered at line 1061 ({)
+### bottom level 
+Here is how much of TeX's memory you used:
+ 3659 strings out of 492995
+ 48081 string characters out of 6132704
+ 132834 words of memory out of 5000000
+ 7188 multiletter control sequences out of 15000+600000
+ 40356 words of font info for 78 fonts, out of 8000000 for 9000
+ 1141 hyphenation exceptions out of 8191
+ 31i,12n,26p,1248b,1338s stack positions out of 5000i,500n,10000p,200000b,80000s
+{/usr/local/texlive/2017/texmf-dist/fonts/enc/dvips/base/8r.enc
+}</usr/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cmextra/cmbsy7
+.pfb></usr/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.
+pfb></usr/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx7.pf
+b></usr/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb
+></usr/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb>
+</usr/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi5.pfb></
+usr/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb></us
+r/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb></usr/
+local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmmib10.pfb></usr/
+local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cmextra/cmmib7.pfb></
+usr/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></us
+r/local/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.pfb></usr/l
+ocal/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></usr/loca
+l/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/local/t
+exlive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/local/texl
+ive/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texli
+ve/2017/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/local/texlive
+/2017/texmf-dist/fonts/type1/urw/helvetic/uhvr8a.pfb></usr/local/texlive/2017/t
+exmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2017/texmf-dist/
+fonts/type1/urw/times/utmr8a.pfb></usr/local/texlive/2017/texmf-dist/fonts/type
+1/urw/times/utmri8a.pfb>
+Output written on styleguide-miscellanea.pdf (13 pages, 257401 bytes).
+PDF statistics:
+ 132 PDF objects out of 1000 (max. 8388607)
+ 95 compressed objects within 1 object stream
+ 0 named destinations out of 1000 (max. 500000)
+ 1 words of extra memory for PDF output out of 10000 (max. 10000000)
+

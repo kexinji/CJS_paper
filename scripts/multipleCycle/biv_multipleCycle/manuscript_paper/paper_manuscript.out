@@ -1,0 +1,14 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{The Bivariate semiparametric stochastic mixed model}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{General bivariate model with joint distribution of random effects}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{The Gaussian Field Specification}{section.2}% 4
+\BOOKMARK [1][-]{section.3}{Estimation and Inference}{}% 5
+\BOOKMARK [2][-]{subsection.3.1}{Matrix notation}{section.3}% 6
+\BOOKMARK [2][-]{subsection.3.2}{Estimation of Model Coefficients, Nonparametric Function, Random Effects and Gaussian Fields}{section.3}% 7
+\BOOKMARK [2][-]{subsection.3.3}{Biases and Covariances of Model Coefficients, Nonparametric Function, Random Effects and Gaussian Fields}{section.3}% 8
+\BOOKMARK [2][-]{subsection.3.4}{Estimation of the Smoothing Parameters and Variance Parameters}{section.3}% 9
+\BOOKMARK [3][-]{subsubsection.3.4.1}{The Linear Mixed Model Representation}{subsection.3.4}% 10
+\BOOKMARK [3][-]{subsubsection.3.4.2}{The Linear Mixed Model Representation}{subsection.3.4}% 11
+\BOOKMARK [1][-]{section.4}{Simulation Study}{}% 12
+\BOOKMARK [1][-]{section.5}{SWAN data analysis}{}% 13
+\BOOKMARK [1][-]{section.6}{Conclusion and Discussions}{}% 14

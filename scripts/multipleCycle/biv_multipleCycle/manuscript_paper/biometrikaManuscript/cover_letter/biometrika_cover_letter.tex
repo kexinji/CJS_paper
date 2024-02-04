@@ -1,0 +1,88 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Plain Cover Letter
+% LaTeX Template
+% Version 1.0 (28/5/13)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Rensselaer Polytechnic Institute 
+% http://www.rpi.edu/dept/arc/training/latex/resumes/
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[11pt]{letter} % Default font size of the document, change to 10pt to fit more text
+
+\usepackage{newcent} % Default font is the New Century Schoolbook PostScript font 
+%\usepackage{helvet} % Uncomment this (while commenting the above line) to use the Helvetica font
+
+% Margins
+\topmargin=-1in % Moves the top of the document 1 inch above the default
+\textheight=8.5in % Total height of the text on the page before text goes on to the next page, this can be increased in a longer letter
+\oddsidemargin=-10pt % Position of the left margin, can be negative or positive if you want more or less room
+\textwidth=6.5in % Total width of the text, increase this if the left margin was decreased and vice-versa
+
+\let\raggedleft\raggedright % Pushes the date (at the top) to the left, comment this line to have the date on the right
+
+\begin{document}
+
+%----------------------------------------------------------------------------------------
+%	ADDRESSEE SECTION
+%----------------------------------------------------------------------------------------
+
+\begin{letter}{Dr. A. C. Davison \\
+Editor-in-Chief  \\
+Biometrika \\
+} 
+
+%----------------------------------------------------------------------------------------
+%	YOUR NAME & ADDRESS SECTION
+%----------------------------------------------------------------------------------------
+
+%\begin{center}
+%\large\bf Dr. John Smith \\ % Your name
+%%\vspace{20pt} \hrule height 1pt % If you would like a horizontal line separating the name from the address, uncomment the line to the left of this text
+%123 Broadway \\ City, State 12345 \\ (000) 111-1111 % Your address and phone number
+%\end{center} 
+%\vfill
+
+\signature{Kexin Ji \\
+Department of Statistics and Actuarial Science \\
+University of Waterloo \\
+Waterloo, Ontario, Canada \\
+N2L 3G1} % Your name for the signature at the bottom
+
+%----------------------------------------------------------------------------------------
+%	LETTER CONTENT SECTION
+%----------------------------------------------------------------------------------------
+
+\opening{Dear Dr. Davison,} 
+ 
+Please find enclosed a copy of manuscript titled "A bivariate semiparametric stochastic mixed model" that Dr. Joel A. Dubin and myself would like to submit for consideration of publication in Biometrika.
+
+In this manuscript, we propose a novel bivariate longitudinal model which assumes parametric covariate effects and nonparametric time courses and models within-subject and between-response correlation using a bivariate Gaussian field and random effects, respectively; and provides estimation procedures for all relevant model parameters and variance components. 
+We believe this is an exciting new approach that could be of use in various applications in which bivariate longitudinal data arises.
+ 
+We have not submitted the manuscript for publication elsewhere, and look forward to  your review and comments.
+
+\closing{Sincerely yours,}
+
+
+%\encl{
+%Department of Statistics and Actuarial Science \\
+%University of Waterloo \\
+%Waterloo, Ontario, Canada} % List your enclosed documents here, comment this out to get rid of the "encl:"
+
+%----------------------------------------------------------------------------------------
+
+\end{letter}
+
+\end{document}

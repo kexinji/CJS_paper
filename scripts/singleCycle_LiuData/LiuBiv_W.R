@@ -1,0 +1,51 @@
+# Use this script for CJS revision
+# Run real data analysis with OU 
+setwd("/Users/kexinji/Documents/CJS_revision/scripts/singleCycle_simuln/")
+
+#------------------------------------------------------------------------------
+# create two indicator variables
+
+dataComp <- read.table("ageBMI.txt", header = T)
+
+dataComp$underWeight <- 0
+dataComp$underWeight[which(dataComp$BMI == 1)] <- 1
+
+dataComp$overWeight <- 0
+dataComp$overWeight[which(dataComp$BMI == 3)] <- 1
+
+dataComp$BMI <- NULL
+
+#------------------------------------------------------------------------------
+# m = 50, randomly select 50 subjects with max 28 in standday
+id <- dataComp[,1]
+m <- max(id)
+niMax <- sapply(1:m, function(v) return(max(dataComp[which(id == v), 2])))
+niMax <- cbind(matrix(1:m, m), as.matrix(niMax))
+
+# subject id with 28 standday
+niMax28 <- niMax[which(niMax[,2] == 28)]
+
+set.seed(100)
+s <- sample(niMax28, 50)
+
+data <- lapply(1:50, function(v) return(rbind(dataComp[which(id == s[v]),])))
+data <- do.call(rbind, data)
+
+# Centre the covariates
+data[,2] <- (data[,2] - 14)/10
+data[,5] <- (data[,5] - 33)/100
+
+
+#------------------------------------------------------------------------------
+# Run 
+source("bivFns_lik.R")
+
+# system.time(res <- results(data, response = cbind(log(data$adjpdg2), log(data$adje1c2)), fixed = cbind(data$age, data$underWeight, data$overWeight), random = cbind(1, 1), process = "OU", time = data$standday, id = data$womanid, tol = 0.001, cap = 50))
+
+# test for equality, with only covariate age
+system.time(res <- results(data, response = cbind(log(data$adjpdg2), log(data$adje1c2)), fixed = cbind(data$age), random = cbind(1, 1), process = "W", time = data$standday, id = data$womanid, tol = 0.001, cap = 50))
+
+# write.csv(unlist(res), "LiuBiv50eq_OU_cat.txt")
+# write.csv(unlist(res), "../CJS_revision_results/LiuBiv50_OU.txt")
+
+write.csv(unlist(res), "LiuBiv50_W.txt")
